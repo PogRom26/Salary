@@ -29,7 +29,6 @@ def main():
     for file_type in required:
 
         if file_type not in files:
-
             raise FileNotFoundError(
                 f"Не найден файл: {file_type}"
             )
@@ -37,40 +36,25 @@ def main():
     print("Чтение Excel файлов...")
 
     profit_df = read_excel(files["profit"])
-
     brand_df = read_excel(files["brand"])
-
     debt_df = read_excel(files["debt"])
 
     print("Инициализация парсеров...")
 
     profit_parser = ProfitParser(profit_df)
-
     brand_parser = BrandParser(brand_df)
-
     debt_parser = DebtParser(debt_df)
 
     print("Сбор списка сотрудников...")
 
-    employees = set()
+    profit_employees = profit_parser.get_employees()
+    brand_employees = brand_parser.get_employees()
 
-    employees.update(
-        profit_parser.get_employees()
+    employees = sorted(
+        profit_employees.intersection(
+            brand_employees
+        )
     )
-
-    employees.update(
-        brand_parser.get_employees()
-    )
-
-    employees.update(
-        debt_parser.get_employees()
-    )
-
-    employees = sorted([
-        e
-        for e in employees
-        if e and str(e).strip()
-    ])
 
     print(
         f"Найдено сотрудников: {len(employees)}"
@@ -109,11 +93,17 @@ def main():
                 .replace(":", "_")
             )
 
-            pdf_file = report_dir / f"{safe_name}.pdf"
+            pdf_file = (
+                report_dir
+                / f"{safe_name}.pdf"
+            )
 
             generate_pdf(
-                report,
-                pdf_file
+                pdf_file,
+                employee,
+                report["profit"],
+                report["brand"],
+                report["debt"],
             )
 
             print(

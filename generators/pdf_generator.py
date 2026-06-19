@@ -2,235 +2,307 @@ from pathlib import Path
 
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import mm
+
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+
 from reportlab.platypus import (
     SimpleDocTemplate,
     Paragraph,
     Spacer,
-    PageBreak,
     Table,
     TableStyle,
 )
 
+# ==================================================
+# Регистрация шрифта
+# ==================================================
+
+FONT_PATH = (
+    Path(__file__).parent.parent
+    / "fonts"
+    / "DejaVuSans.ttf"
+)
+
+pdfmetrics.registerFont(
+    TTFont(
+        "DejaVuSans",
+        str(FONT_PATH)
+    )
+)
+
+
+# ==================================================
+# Форматирование денег
+# ==================================================
 
 def money(value):
-    return f"{value:,.2f} ₽".replace(",", " ")
+
+    try:
+        return f"{float(value):,.2f}".replace(",", " ")
+    except Exception:
+        return "0.00"
 
 
-def generate_pdf(report, output_file):
+# ==================================================
+# Генерация PDF
+# ==================================================
 
-    Path(output_file).parent.mkdir(
+def generate_pdf(
+    pdf_path,
+    employee,
+    profit_data,
+    brand_data,
+    debt_data,
+):
+
+    pdf_path = Path(pdf_path)
+
+    pdf_path.parent.mkdir(
         parents=True,
         exist_ok=True
     )
 
-    doc = SimpleDocTemplate(output_file)
+    doc = SimpleDocTemplate(
+        str(pdf_path),
+        rightMargin=15 * mm,
+        leftMargin=15 * mm,
+        topMargin=15 * mm,
+        bottomMargin=15 * mm,
+    )
 
     styles = getSampleStyleSheet()
 
-    elements = []
+    for style in styles.byName.values():
+        style.fontName = "DejaVuSans"
 
-    # ==========================
+    story = []
+
+    # ==================================================
     # Заголовок
-    # ==========================
+    # ==================================================
 
-    elements.append(
+    story.append(
         Paragraph(
-            f"<b>Расчет сотрудника</b><br/>{report.employee}",
+            "Расчёт сотрудника",
             styles["Title"]
         )
     )
 
-    elements.append(Spacer(1, 20))
-
-    # ==========================
-    # Доход
-    # ==========================
-
-    elements.append(
-        Paragraph("1. Доход", styles["Heading2"])
-    )
-
-    income_data = [
-        ["Показатель", "Значение"],
-        ["Доход", money(report.income)],
-        ["Бонус 5%", money(report.income_bonus)]
-    ]
-
-    income_table = Table(
-        income_data,
-        colWidths=[200, 200]
-    )
-
-    income_table.setStyle(
-        TableStyle([
-            ("GRID", (0, 0), (-1, -1), 1, colors.black),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-        ])
-    )
-
-    elements.append(income_table)
-
-    elements.append(Spacer(1, 20))
-
-    # ==========================
-    # KPI брендов
-    # ==========================
-
-    elements.append(
+    story.append(
         Paragraph(
-            "2. KPI по брендам",
+            employee,
             styles["Heading2"]
         )
     )
 
-    if report.brands:
+    story.append(
+        Spacer(1, 10)
+    )
 
-        brand_data = [[
+    # ==================================================
+    # Доход
+    # ==================================================
+
+    story.append(
+        Paragraph(
+            "Доход",
+            styles["Heading2"]
+        )
+    )
+
+    profit_table = Table(
+        [
+            ["Показатель", "Значение"],
+            ["Доход", money(profit_data["income"])],
+            ["Бонус 5%", money(profit_data["bonus"])],
+        ],
+        colWidths=[90 * mm, 50 * mm],
+    )
+
+    profit_table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
+                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+            ]
+        )
+    )
+
+    story.append(profit_table)
+
+    story.append(
+        Spacer(1, 10)
+    )
+
+    # ==================================================
+    # KPI
+    # ==================================================
+
+    story.append(
+        Paragraph(
+            "KPI",
+            styles["Heading2"]
+        )
+    )
+
+    kpi_rows = [
+        [
             "Бренд",
             "План",
             "Факт",
             "%",
-            "Бонус"
-        ]]
-
-        for brand in report.brands:
-
-            brand_data.append([
-                str(brand["brand"]),
-                f"{brand['plan']}",
-                f"{brand['fact']}",
-                f"{brand['percent']:.2f}",
-                money(brand["bonus"])
-            ])
-
-        brand_table = Table(brand_data)
-
-        brand_table.setStyle(
-            TableStyle([
-                ("GRID", (0, 0), (-1, -1), 1, colors.black),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-            ])
-        )
-
-        elements.append(brand_table)
-
-        elements.append(Spacer(1, 10))
-
-        elements.append(
-            Paragraph(
-                f"<b>Итого KPI бонус:</b> "
-                f"{money(report.kpi_bonus_total)}",
-                styles["Normal"]
-            )
-        )
-
-    else:
-
-        elements.append(
-            Paragraph(
-                "Нет данных",
-                styles["Normal"]
-            )
-        )
-
-    elements.append(Spacer(1, 20))
-
-    # ==========================
-    # Дебиторка
-    # ==========================
-
-    elements.append(
-        Paragraph(
-            "3. Просроченная дебиторская задолженность",
-            styles["Heading2"]
-        )
-    )
-
-    if report.debts:
-
-        debt_data = [
-            ["Контрагент", "Просрочено"]
+            "Бонус",
         ]
-
-        for debt in report.debts:
-
-            debt_data.append([
-                debt["contractor"],
-                money(debt["overdue"])
-            ])
-
-        debt_table = Table(
-            debt_data,
-            colWidths=[350, 150]
-        )
-
-        debt_table.setStyle(
-            TableStyle([
-                ("GRID", (0, 0), (-1, -1), 1, colors.black),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-            ])
-        )
-
-        elements.append(debt_table)
-
-        elements.append(Spacer(1, 10))
-
-        elements.append(
-            Paragraph(
-                f"<b>Общая просрочка:</b> "
-                f"{money(report.overdue_total)}",
-                styles["Normal"]
-            )
-        )
-
-        elements.append(
-            Paragraph(
-                f"<b>Показатель (1%):</b> "
-                f"{money(report.debt_indicator)}",
-                styles["Normal"]
-            )
-        )
-
-    else:
-
-        elements.append(
-            Paragraph(
-                "Нет задолженности",
-                styles["Normal"]
-            )
-        )
-
-    elements.append(Spacer(1, 20))
-
-    # ==========================
-    # Итог
-    # ==========================
-
-    elements.append(
-        Paragraph(
-            "4. Итог",
-            styles["Heading2"]
-        )
-    )
-
-    total_data = [
-        ["Показатель", "Сумма"],
-        ["Бонус по доходу", money(report.income_bonus)],
-        ["KPI бонус", money(report.kpi_bonus_total)],
-        ["Общий бонус", money(report.total_bonus)],
-        ["Просроченная дебиторка", money(report.overdue_total)],
-        ["Показатель дебиторки", money(report.debt_indicator)],
     ]
 
-    total_table = Table(total_data)
+    for item in brand_data["brands"]:
 
-    total_table.setStyle(
-        TableStyle([
-            ("GRID", (0, 0), (-1, -1), 1, colors.black),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-        ])
+        kpi_rows.append(
+            [
+                item["brand"],
+                money(item["plan"]),
+                money(item["fact"]),
+                f"{item['percent']:.2f}",
+                money(item["bonus"]),
+            ]
+        )
+
+    kpi_rows.append(
+        [
+            "",
+            "",
+            "",
+            "ИТОГО",
+            money(
+                brand_data["bonus_total"]
+            ),
+        ]
     )
 
-    elements.append(total_table)
+    kpi_table = Table(kpi_rows)
 
-    doc.build(elements)
+    kpi_table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
+                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+            ]
+        )
+    )
+
+    story.append(kpi_table)
+
+    story.append(
+        Spacer(1, 10)
+    )
+
+    # ==================================================
+    # Дебиторская задолженность
+    # ==================================================
+
+    story.append(
+        Paragraph(
+            "Дебиторская задолженность",
+            styles["Heading2"]
+        )
+    )
+
+    debt_table = Table(
+        [
+            ["Показатель", "Значение"],
+            [
+                "Общая просроченная задолженность",
+                money(
+                    debt_data["total"]
+                ),
+            ],
+            [
+                "Показатель (1%)",
+                money(
+                    debt_data["indicator"]
+                ),
+            ],
+        ],
+        colWidths=[90 * mm, 50 * mm],
+    )
+
+    debt_table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
+                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+            ]
+        )
+    )
+
+    story.append(debt_table)
+
+    story.append(
+        Spacer(1, 15)
+    )
+
+    # ==================================================
+    # Итог
+    # ==================================================
+
+    total_bonus = (
+        profit_data["bonus"]
+        + brand_data["bonus_total"]
+        + debt_data["indicator"]
+    )
+
+    total_table = Table(
+        [
+            ["Показатель", "Сумма"],
+            [
+                "Бонус по прибыли",
+                money(
+                    profit_data["bonus"]
+                ),
+            ],
+            [
+                "Бонус KPI",
+                money(
+                    brand_data["bonus_total"]
+                ),
+            ],
+            [
+                "Показатель дебиторки",
+                money(
+                    debt_data["indicator"]
+                ),
+            ],
+            [
+                "ИТОГО",
+                money(total_bonus),
+            ],
+        ],
+        colWidths=[90 * mm, 50 * mm],
+    )
+
+    total_table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
+                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                ("BACKGROUND", (0, -1), (-1, -1), colors.lightgrey),
+            ]
+        )
+    )
+
+    story.append(
+        Paragraph(
+            "Итоговый расчёт",
+            styles["Heading2"]
+        )
+    )
+
+    story.append(total_table)
+
+    doc.build(story)
