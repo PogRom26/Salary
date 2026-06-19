@@ -1,6 +1,3 @@
-from models.employee_report import EmployeeReport
-
-
 def build_employee_report(
     employee,
     profit_parser,
@@ -8,21 +5,23 @@ def build_employee_report(
     debt_parser,
 ):
 
-    report = EmployeeReport(
-        employee=employee
-    )
-
     # ==========================================
     # Доход
     # ==========================================
 
-    income_data = profit_parser.get_income(
+    profit_data = profit_parser.get_income(
         employee
     )
 
-    report.income = income_data["income"]
+    sales = profit_data["sales"]
 
-    report.income_bonus = income_data["bonus"]
+    income = profit_data["income"]
+
+    profitability = profit_data[
+        "profitability"
+    ]
+
+    income_bonus = profit_data["bonus"]
 
     # ==========================================
     # KPI
@@ -32,11 +31,17 @@ def build_employee_report(
         employee
     )
 
-    report.brands = kpi_data["brands"]
+    zic = kpi_data["zic"]
 
-    report.kpi_bonus_total = (
-        kpi_data["bonus_total"]
-    )
+    other = kpi_data["other"]
+
+    zic_bonus_total = kpi_data[
+        "zic_bonus_total"
+    ]
+
+    other_bonus_total = kpi_data[
+        "other_bonus_total"
+    ]
 
     # ==========================================
     # Дебиторка
@@ -46,41 +51,86 @@ def build_employee_report(
         employee
     )
 
-    report.overdue_total = (
-        debt_data["total"]
-    )
+    overdue_total = debt_data["total"]
 
-    report.debt_indicator = (
-        debt_data["indicator"]
-    )
+    responsibility = debt_data[
+        "indicator"
+    ]
+
+    # ==========================================
+    # Отношение ПДЗ к обороту
+    # ==========================================
+
+    if sales > 0:
+
+        debt_ratio = (
+            overdue_total
+            / sales
+            * 100
+        )
+
+    else:
+
+        debt_ratio = 0
 
     # ==========================================
     # Общий итог
     # ==========================================
 
-    report.total_bonus = (
-        report.income_bonus
-        + report.kpi_bonus_total
-        + report.debt_indicator
+    total_bonus = (
+        income_bonus
+        + zic_bonus_total
+        + other_bonus_total
+        - responsibility
     )
 
+    # ==========================================
+    # Результат
+    # ==========================================
+
     return {
+
         "employee": employee,
 
         "profit": {
-            "income": report.income,
-            "bonus": report.income_bonus,
+
+            "sales": sales,
+
+            "income": income,
+
+            "profitability": profitability,
+
+            "bonus": income_bonus,
         },
 
         "brand": {
-            "brands": report.brands,
-            "bonus_total": report.kpi_bonus_total,
+
+            "zic": zic,
+
+            "other": other,
+
+            "zic_bonus_total":
+                zic_bonus_total,
+
+            "other_bonus_total":
+                other_bonus_total,
+
+            "bonus_total":
+                zic_bonus_total
+                + other_bonus_total,
         },
 
         "debt": {
-            "total": report.overdue_total,
-            "indicator": report.debt_indicator,
+
+            "total": overdue_total,
+
+            "responsibility":
+                responsibility,
+
+            "ratio":
+                debt_ratio,
         },
 
-        "total_bonus": report.total_bonus,
+        "total_bonus":
+            total_bonus,
     }

@@ -1,6 +1,13 @@
 import pandas as pd
 
-from config import BRAND_BONUS_BASE
+
+ZIC_BONUS_BASE = 40000
+OTHER_BONUS_BASE = 30000
+OTHER_KPI_WEIGHTS = {
+    "В2В Полярная Звезда": 22.5,
+    "В2В VegaOil": 50.0,
+    "B2B GSK": 27.5,
+}
 
 
 class BrandParser:
@@ -50,11 +57,7 @@ class BrandParser:
 
         words = value.split()
 
-        # ожидаем ФИО
-        if len(words) < 3:
-            return False
-
-        return True
+        return len(words) >= 3
 
     # ==================================================
     # Получить сотрудников
@@ -84,9 +87,11 @@ class BrandParser:
 
         employee = str(employee).strip()
 
-        brands = []
+        zic = []
+        other = []
 
-        total_bonus = 0
+        zic_bonus_total = 0
+        other_bonus_total = 0
 
         current_employee = None
 
@@ -94,10 +99,12 @@ class BrandParser:
 
             col_a = row.iloc[0]
 
-            # найден новый сотрудник
             if self._is_employee(col_a):
 
-                current_employee = str(col_a).strip()
+                current_employee = (
+                    str(col_a).strip()
+                )
+
                 continue
 
             if current_employee != employee:
@@ -105,14 +112,16 @@ class BrandParser:
 
             try:
 
-                brand = row.iloc[3]
+                kpi_name = row.iloc[3]
 
-                if pd.isna(brand):
+                if pd.isna(kpi_name):
                     continue
 
-                brand = str(brand).strip()
+                kpi_name = str(
+                    kpi_name
+                ).strip()
 
-                if not brand:
+                if not kpi_name:
                     continue
 
                 plan = row.iloc[5]
@@ -132,28 +141,108 @@ class BrandParser:
                 fact = float(fact)
                 percent = float(percent)
 
-                bonus = (
-                    percent / 100
-                ) * BRAND_BONUS_BASE
+                # =========================
+                # KPI ZIC
+                # =========================
 
-                brands.append(
-                    {
-                        "brand": brand,
+                if "zic" in kpi_name.lower():
+
+                    bonus = (
+                        percent
+                        / 100
+                        * ZIC_BONUS_BASE
+                    )
+
+                    item = {
+                        "brand": kpi_name,
                         "plan": plan,
                         "fact": fact,
                         "percent": percent,
                         "bonus": bonus,
                     }
-                )
 
-                total_bonus += bonus
+                    zic.append(item)
+
+                    zic_bonus_total += bonus
+
+                # =========================
+                # Остальные KPI
+                # =========================
+
+                else:
+
+                    name = kpi_name.lower()
+
+                    if "поляр" in name:
+                        weight = 22.5
+
+                    elif "vega" in name:
+                        weight = 50.0
+
+                    elif "gsk" in name:
+                        weight = 27.5
+
+                    else:
+                        weight = 0
+
+                    weighted_percent = (
+                            percent
+                            * weight
+                            / 100
+                    )
+
+                    item = {
+                        "brand": kpi_name,
+                        "plan": plan,
+                        "fact": fact,
+                        "percent": percent,
+                        "weight": weight,
+                        "weighted_percent": weighted_percent,
+                    }
+
+                    other.append(item)
 
             except Exception:
                 continue
 
+        other_total_percent = sum(
+            item["weighted_percent"]
+            for item in other
+        )
+
+        other_ratio = (
+                other_total_percent / 100
+        )
+
+        if other_ratio > 1.2:
+            other_ratio = 1.2
+
+        elif other_ratio < 0.1:
+            other_ratio = 0
+
+        other_bonus_total = (
+                OTHER_BONUS_BASE
+                * other_ratio
+        )
+
         return {
-            "brands": brands,
-            "bonus_total": total_bonus,
+
+            "zic": zic,
+
+            "other": other,
+
+            "zic_bonus_total":
+                zic_bonus_total,
+
+            "other_bonus_total":
+                other_bonus_total,
+
+            "bonus_total":
+                zic_bonus_total
+                + other_bonus_total,
+
+            "other_total_percent":
+                other_total_percent,
         }
 
     # ==================================================
@@ -165,8 +254,11 @@ class BrandParser:
         employees = self.get_employees()
 
         print(
-            f"Найдено сотрудников: {len(employees)}"
+            f"Найдено сотрудников: "
+            f"{len(employees)}"
         )
 
-        for employee in sorted(employees):
+        for employee in sorted(
+            employees
+        ):
             print(employee)

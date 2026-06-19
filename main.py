@@ -23,6 +23,8 @@ def main():
     print(f"Найден период: {period_folder}")
 
     files = find_files(period_folder)
+    year = int(period_folder.parent.name)
+    month = int(period_folder.name)
 
     required = ["profit", "brand", "debt"]
 
@@ -104,6 +106,8 @@ def main():
                 report["profit"],
                 report["brand"],
                 report["debt"],
+                year,
+                month,
             )
 
             print(

@@ -6,15 +6,18 @@ from config import PROFIT_BONUS_PERCENT
 class ProfitParser:
 
     def __init__(self, df: pd.DataFrame):
+
         self.df = df
 
         self.manager_col = None
+        self.sales_col = None
         self.income_col = None
+        self.profitability_col = None
 
         self._detect_columns()
 
     # ==================================================
-    # Поиск нужных колонок
+    # Поиск колонок
     # ==================================================
 
     def _detect_columns(self):
@@ -31,22 +34,29 @@ class ProfitParser:
                 if "менеджер" in value:
                     self.manager_col = idx
 
-                if "доход текущий" in value:
+                elif "сумма продажи" in value:
+                    self.sales_col = idx
+
+                elif "доход текущий" in value:
                     self.income_col = idx
+
+                elif "рентабельность текущая" in value:
+                    self.profitability_col = idx
 
             if (
                 self.manager_col is not None
+                and self.sales_col is not None
                 and self.income_col is not None
+                and self.profitability_col is not None
             ):
                 return
 
         raise ValueError(
-            "Не удалось найти колонки "
-            "'Менеджер' и 'Доход текущий'"
+            "Не удалось определить колонки Profit"
         )
 
     # ==================================================
-    # Проверка строки сотрудника
+    # Строка сотрудника?
     # ==================================================
 
     def _is_employee_row(self, row):
@@ -54,8 +64,6 @@ class ProfitParser:
         try:
 
             name = row.iloc[self.manager_col]
-
-            income = row.iloc[self.income_col]
 
             if pd.isna(name):
                 return False
@@ -67,23 +75,24 @@ class ProfitParser:
 
             words = name.split()
 
-            # ожидаем ФИО
             if len(words) < 3:
                 return False
 
-            # доход должен быть числом
-            if pd.isna(income):
+            sales = row.iloc[self.sales_col]
+
+            if pd.isna(sales):
                 return False
 
-            float(income)
+            float(sales)
 
             return True
 
         except Exception:
+
             return False
 
     # ==================================================
-    # Получить список сотрудников
+    # Список сотрудников
     # ==================================================
 
     def get_employees(self):
@@ -103,7 +112,7 @@ class ProfitParser:
         return employees
 
     # ==================================================
-    # Получить данные по сотруднику
+    # Получить данные сотрудника
     # ==================================================
 
     def get_income(self, employee):
@@ -123,14 +132,27 @@ class ProfitParser:
                 continue
 
             try:
+                sales = float(
+                    row.iloc[self.sales_col]
+                )
+            except Exception:
+                sales = 0
 
+            try:
                 income = float(
                     row.iloc[self.income_col]
                 )
-
             except Exception:
-
                 income = 0
+
+            try:
+                profitability = float(
+                    row.iloc[
+                        self.profitability_col
+                    ]
+                )
+            except Exception:
+                profitability = 0
 
             bonus = (
                 income
@@ -138,17 +160,21 @@ class ProfitParser:
             )
 
             return {
+                "sales": sales,
                 "income": income,
-                "bonus": bonus
+                "profitability": profitability,
+                "bonus": bonus,
             }
 
         return {
+            "sales": 0,
             "income": 0,
-            "bonus": 0
+            "profitability": 0,
+            "bonus": 0,
         }
 
     # ==================================================
-    # Отладочная информация
+    # Отладка
     # ==================================================
 
     def print_columns(self):
@@ -158,5 +184,14 @@ class ProfitParser:
         )
 
         print(
-            f"Доход текущий: {self.income_col}"
+            f"Продажи: {self.sales_col}"
+        )
+
+        print(
+            f"Доход: {self.income_col}"
+        )
+
+        print(
+            f"Рентабельность: "
+            f"{self.profitability_col}"
         )

@@ -55,7 +55,23 @@ def generate_pdf(
     profit_data,
     brand_data,
     debt_data,
+    year,
+    month,
 ):
+    MONTHS = {
+        1: "январь",
+        2: "февраль",
+        3: "март",
+        4: "апрель",
+        5: "май",
+        6: "июнь",
+        7: "июль",
+        8: "август",
+        9: "сентябрь",
+        10: "октябрь",
+        11: "ноябрь",
+        12: "декабрь",
+    }
 
     pdf_path = Path(pdf_path)
 
@@ -85,7 +101,8 @@ def generate_pdf(
 
     story.append(
         Paragraph(
-            "Расчёт сотрудника",
+            f"Расчёт сотрудника b2b-направления за "
+            f"{MONTHS[month]} {year} года",
             styles["Title"]
         )
     )
@@ -93,7 +110,7 @@ def generate_pdf(
     story.append(
         Paragraph(
             employee,
-            styles["Heading2"]
+            styles["Title"]
         )
     )
 
@@ -107,7 +124,7 @@ def generate_pdf(
 
     story.append(
         Paragraph(
-            "Доход",
+            "1.Доход",
             styles["Heading2"]
         )
     )
@@ -115,8 +132,26 @@ def generate_pdf(
     profit_table = Table(
         [
             ["Показатель", "Значение"],
-            ["Доход", money(profit_data["income"])],
-            ["Бонус 5%", money(profit_data["bonus"])],
+
+            [
+                "Сумма продаж",
+                money(profit_data["sales"]),
+            ],
+
+            [
+                "Доход текущий",
+                money(profit_data["income"]),
+            ],
+
+            [
+                "Рентабельность текущая",
+                f'{profit_data["profitability"]:.2f}%',
+            ],
+
+            [
+                "Бонус от дохода 5%",
+                money(profit_data["bonus"]),
+            ],
         ],
         colWidths=[90 * mm, 50 * mm],
     )
@@ -138,29 +173,28 @@ def generate_pdf(
     )
 
     # ==================================================
-    # KPI
+    # KPI ZIC
     # ==================================================
 
     story.append(
         Paragraph(
-            "KPI",
+            "2.KPI ZIC",
             styles["Heading2"]
         )
     )
 
-    kpi_rows = [
+    zic_rows = [
         [
-            "Бренд",
+            "Показатель",
             "План",
             "Факт",
-            "%",
-            "Бонус",
+            "% выполнения",
+            "Размер бонуса",
         ]
     ]
 
-    for item in brand_data["brands"]:
-
-        kpi_rows.append(
+    for item in brand_data["zic"]:
+        zic_rows.append(
             [
                 item["brand"],
                 money(item["plan"]),
@@ -170,21 +204,21 @@ def generate_pdf(
             ]
         )
 
-    kpi_rows.append(
-        [
-            "",
-            "",
-            "",
-            "ИТОГО",
-            money(
-                brand_data["bonus_total"]
-            ),
-        ]
-    )
+    # zic_rows.append(
+    #     [
+    #         "",
+    #         "",
+    #         "",
+    #         "ИТОГО",
+    #         money(
+    #             brand_data["zic_bonus_total"]
+    #         ),
+    #     ]
+    # )
 
-    kpi_table = Table(kpi_rows)
+    zic_table = Table(zic_rows)
 
-    kpi_table.setStyle(
+    zic_table.setStyle(
         TableStyle(
             [
                 ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
@@ -194,7 +228,101 @@ def generate_pdf(
         )
     )
 
-    story.append(kpi_table)
+    story.append(zic_table)
+
+    story.append(
+        Spacer(1, 10)
+    )
+
+    # ==================================================
+    # Другие KPI
+    # ==================================================
+
+    # ==================================================
+    # Другие KPI
+    # ==================================================
+
+    story.append(
+        Paragraph(
+            "3.Другие KPI",
+            styles["Heading2"]
+        )
+    )
+
+    other_rows = [
+        [
+            "Показатель",
+            "План",
+            "Факт",
+            "% выполнения",
+            "Вес KPI",
+            "Итог %",
+        ]
+    ]
+
+    other_total_percent = 0
+
+    for item in brand_data["other"]:
+        other_total_percent += item["weighted_percent"]
+
+        other_rows.append(
+            [
+                item["brand"],
+                money(item["plan"]),
+                money(item["fact"]),
+                f"{item['percent']:.2f}%",
+                f"{item['weight']:.2f}%",
+                f"{item['weighted_percent']:.2f}%",
+            ]
+        )
+
+    other_rows.append(
+        [
+            "",
+            "",
+            "",
+            "",
+            "ИТОГО",
+            f"{other_total_percent:.2f}%",
+        ]
+    )
+
+    other_rows.append(
+        [
+            "",
+            "",
+            "",
+            "",
+            "Бонус",
+            money(
+                brand_data["other_bonus_total"]
+            ),
+        ]
+    )
+
+    other_table = Table(
+        other_rows,
+        colWidths=[
+            45 * mm,
+            22 * mm,
+            22 * mm,
+            25 * mm,
+            25 * mm,
+            25 * mm,
+        ]
+    )
+
+    other_table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
+                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+            ]
+        )
+    )
+
+    story.append(other_table)
 
     story.append(
         Spacer(1, 10)
@@ -206,7 +334,7 @@ def generate_pdf(
 
     story.append(
         Paragraph(
-            "Дебиторская задолженность",
+            "4.Дебиторская задолженность",
             styles["Heading2"]
         )
     )
@@ -214,17 +342,22 @@ def generate_pdf(
     debt_table = Table(
         [
             ["Показатель", "Значение"],
+
             [
                 "Общая просроченная задолженность",
                 money(
                     debt_data["total"]
                 ),
             ],
+
             [
-                "Показатель (1%)",
-                money(
-                    debt_data["indicator"]
-                ),
+                "Ответственность за ПДЗ (1% от суммы)",
+                f"-{money(debt_data['responsibility'])}",
+            ],
+
+            [
+                "Отношение ПДЗ к обороту (справочно)",
+                f"{debt_data['ratio']:.2f}%",
             ],
         ],
         colWidths=[90 * mm, 50 * mm],
@@ -251,32 +384,42 @@ def generate_pdf(
     # ==================================================
 
     total_bonus = (
-        profit_data["bonus"]
-        + brand_data["bonus_total"]
-        + debt_data["indicator"]
+            profit_data["bonus"]
+            + brand_data["zic_bonus_total"]
+            + brand_data["other_bonus_total"]
+            - debt_data["responsibility"]
     )
 
     total_table = Table(
         [
             ["Показатель", "Сумма"],
+
             [
-                "Бонус по прибыли",
+                "Бонус от дохода 5%",
                 money(
                     profit_data["bonus"]
                 ),
             ],
+
             [
-                "Бонус KPI",
+                "Бонус KPI ZIC",
                 money(
-                    brand_data["bonus_total"]
+                    brand_data["zic_bonus_total"]
                 ),
             ],
+
             [
-                "Показатель дебиторки",
+                "Бонус за другие KPI",
                 money(
-                    debt_data["indicator"]
+                    brand_data["other_bonus_total"]
                 ),
             ],
+
+            [
+                "Ответственность за ПДЗ",
+                f"-{money(debt_data['responsibility'])}",
+            ],
+
             [
                 "ИТОГО",
                 money(total_bonus),
