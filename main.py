@@ -8,6 +8,7 @@ from parsers.excel_reader import read_excel
 from parsers.profit_parser import ProfitParser
 from parsers.brand_parser import BrandParser
 from parsers.debt_parser import DebtParser
+from parsers.comm_parser import CommParser
 
 from services.report_builder import build_employee_report
 
@@ -26,7 +27,12 @@ def main():
     year = int(period_folder.parent.name)
     month = int(period_folder.name)
 
-    required = ["profit", "brand", "debt"]
+    required = [
+        "profit",
+        "brand",
+        "debt",
+        "communications",
+    ]
 
     for file_type in required:
 
@@ -40,12 +46,18 @@ def main():
     profit_df = read_excel(files["profit"])
     brand_df = read_excel(files["brand"])
     debt_df = read_excel(files["debt"])
+    comm_df = read_excel(
+        files["communications"]
+    )
+
+    # print(comm_df.head(30))
 
     print("Инициализация парсеров...")
 
     profit_parser = ProfitParser(profit_df)
     brand_parser = BrandParser(brand_df)
     debt_parser = DebtParser(debt_df)
+    comm_parser = CommParser(comm_df)
 
     print("Сбор списка сотрудников...")
 
@@ -86,7 +98,10 @@ def main():
                 profit_parser=profit_parser,
                 brand_parser=brand_parser,
                 debt_parser=debt_parser,
+                comm_parser=comm_parser,
             )
+
+            print(report["brand"].keys())
 
             safe_name = (
                 employee
@@ -106,6 +121,7 @@ def main():
                 report["profit"],
                 report["brand"],
                 report["debt"],
+                report["communications"],
                 year,
                 month,
             )

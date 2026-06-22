@@ -3,6 +3,7 @@ def build_employee_report(
     profit_parser,
     brand_parser,
     debt_parser,
+    comm_parser,
 ):
 
     # ==========================================
@@ -35,9 +36,14 @@ def build_employee_report(
 
     other = kpi_data["other"]
 
+    lukoil = kpi_data["lukoil"]
+
     zic_bonus_total = kpi_data[
         "zic_bonus_total"
     ]
+
+    lukoil_bonus = kpi_data["lukoil_bonus"]
+
 
     other_bonus_total = kpi_data[
         "other_bonus_total"
@@ -74,14 +80,31 @@ def build_employee_report(
         debt_ratio = 0
 
     # ==========================================
+    # Коммуникации за месяц
+    # ==========================================
+
+    comm_data = (
+        comm_parser.get_employee_stats(
+            employee
+        )
+    )
+
+    print("\n===================")
+    print(employee)
+    print(comm_data)
+    print("===================\n")
+
+
+    # ==========================================
     # Общий итог
     # ==========================================
 
     total_bonus = (
-        income_bonus
-        + zic_bonus_total
-        + other_bonus_total
-        - responsibility
+            income_bonus
+            + zic_bonus_total
+            + lukoil_bonus
+            + other_bonus_total
+            - responsibility
     )
 
     # ==========================================
@@ -107,16 +130,22 @@ def build_employee_report(
 
             "zic": zic,
 
+            "lukoil": lukoil,
+
             "other": other,
 
             "zic_bonus_total":
                 zic_bonus_total,
+
+            "lukoil_bonus":
+                lukoil_bonus,
 
             "other_bonus_total":
                 other_bonus_total,
 
             "bonus_total":
                 zic_bonus_total
+                + lukoil_bonus
                 + other_bonus_total,
         },
 
@@ -130,6 +159,9 @@ def build_employee_report(
             "ratio":
                 debt_ratio,
         },
+
+        "communications":
+            comm_data,
 
         "total_bonus":
             total_bonus,

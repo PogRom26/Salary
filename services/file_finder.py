@@ -18,4 +18,7 @@ def find_files(folder):
         elif "brand" in name:
             files["brand"] = file
 
+        elif "коммуникации" in name:
+            files["communications"] = file
+
     return files

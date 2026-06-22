@@ -93,6 +93,9 @@ class BrandParser:
         zic_bonus_total = 0
         other_bonus_total = 0
 
+        lukoil = None
+        lukoil_bonus = 0
+
         current_employee = None
 
         for _, row in self.df.iterrows():
@@ -166,6 +169,37 @@ class BrandParser:
                     zic_bonus_total += bonus
 
                 # =========================
+                # Лукойл
+                # =========================
+
+                elif "лукойл" in kpi_name.lower():
+
+                    kg = fact
+
+                    if kg < 500:
+                        rate = 0
+
+                    elif kg < 2000:
+                        rate = 5
+
+                    elif kg < 5000:
+                        rate = 8
+
+                    else:
+                        rate = 10
+
+                    lukoil_bonus = kg * rate
+
+                    lukoil = {
+                        "kg": kg,
+                        "rate": rate,
+                        "bonus": lukoil_bonus,
+                    }
+
+                    continue
+
+
+                # =========================
                 # Остальные KPI
                 # =========================
 
@@ -229,20 +263,23 @@ class BrandParser:
 
             "zic": zic,
 
+            "lukoil": lukoil,
+
             "other": other,
 
             "zic_bonus_total":
                 zic_bonus_total,
+
+            "lukoil_bonus":
+                lukoil_bonus,
 
             "other_bonus_total":
                 other_bonus_total,
 
             "bonus_total":
                 zic_bonus_total
+                + lukoil_bonus
                 + other_bonus_total,
-
-            "other_total_percent":
-                other_total_percent,
         }
 
     # ==================================================

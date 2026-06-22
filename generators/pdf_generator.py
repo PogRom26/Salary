@@ -7,6 +7,9 @@ from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
+from reportlab.lib.enums import TA_JUSTIFY
+from reportlab.lib.styles import ParagraphStyle
+
 from reportlab.platypus import (
     SimpleDocTemplate,
     Paragraph,
@@ -55,8 +58,10 @@ def generate_pdf(
     profit_data,
     brand_data,
     debt_data,
+    communications,
     year,
     month,
+
 ):
     MONTHS = {
         1: "январь",
@@ -89,6 +94,13 @@ def generate_pdf(
     )
 
     styles = getSampleStyleSheet()
+
+    justified_style = ParagraphStyle(
+        "Justified",
+        parent=styles["BodyText"],
+        fontName="DejaVuSans",
+        alignment=TA_JUSTIFY,
+    )
 
     for style in styles.byName.values():
         style.fontName = "DejaVuSans"
@@ -183,6 +195,17 @@ def generate_pdf(
         )
     )
 
+    story.append(
+        Paragraph(
+            "Показатель работы по KPI ZIC. Базовый размер бонуса 40.000 руб. зависит от % выполнения. ",
+            justified_style
+        )
+    )
+
+    story.append(
+        Spacer(1, 10)
+    )
+
     zic_rows = [
         [
             "Показатель",
@@ -204,18 +227,6 @@ def generate_pdf(
             ]
         )
 
-    # zic_rows.append(
-    #     [
-    #         "",
-    #         "",
-    #         "",
-    #         "ИТОГО",
-    #         money(
-    #             brand_data["zic_bonus_total"]
-    #         ),
-    #     ]
-    # )
-
     zic_table = Table(zic_rows)
 
     zic_table.setStyle(
@@ -235,8 +246,75 @@ def generate_pdf(
     )
 
     # ==================================================
-    # Другие KPI
+    # Лукойл
     # ==================================================
+
+    story.append(
+        Paragraph(
+            "3. Лукойл",
+            styles["Heading2"]
+        )
+    )
+
+    story.append(
+        Paragraph(
+            "Размер бонусирования при продаже "
+            "от 0 до 499 кг — 0 руб./кг, "
+            "от 500 до 1999 кг — 5 руб./кг, "
+            "от 2000 до 4999 кг — 8 руб./кг, "
+            "от 5000 кг — 10 руб./кг.",
+            justified_style
+        )
+    )
+
+    story.append(
+        Spacer(1, 10)
+    )
+
+    if brand_data["lukoil"]:
+        lukoil_table = Table(
+            [
+                ["Показатель", "Значение"],
+
+                [
+                    "Объём продаж, кг",
+                    money(
+                        brand_data["lukoil"]["kg"]
+                    ),
+                ],
+
+                [
+                    "Ставка, руб./кг",
+                    money(
+                        brand_data["lukoil"]["rate"]
+                    ),
+                ],
+
+                [
+                    "Бонус",
+                    money(
+                        brand_data["lukoil"]["bonus"]
+                    ),
+                ],
+            ],
+            colWidths=[90 * mm, 50 * mm],
+        )
+
+        lukoil_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
+                    ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                ]
+            )
+        )
+
+        story.append(lukoil_table)
+
+    story.append(
+        Spacer(1, 10)
+    )
 
     # ==================================================
     # Другие KPI
@@ -244,10 +322,26 @@ def generate_pdf(
 
     story.append(
         Paragraph(
-            "3.Другие KPI",
+            "4.Другие KPI",
             styles["Heading2"]
         )
     )
+
+    story.append(
+        Paragraph(
+            "Итоговый показатель «Другие KPI» определяется как сумма "
+            "результатов выполнения отдельных KPI с учётом их весов в общей "
+            "структуре оценки. Для расчёта бонуса применяется ограничение: "
+            "максимальное учитываемое выполнение — 120%, минимальное — 10%. "
+            "Базовый размер бонуса — 30 000 руб.",
+            justified_style
+        )
+    )
+
+    story.append(
+        Spacer(1, 10)
+    )
+
 
     other_rows = [
         [
@@ -306,7 +400,7 @@ def generate_pdf(
             45 * mm,
             22 * mm,
             22 * mm,
-            25 * mm,
+            30 * mm,
             25 * mm,
             25 * mm,
         ]
@@ -334,7 +428,7 @@ def generate_pdf(
 
     story.append(
         Paragraph(
-            "4.Дебиторская задолженность",
+            "5.Дебиторская задолженность",
             styles["Heading2"]
         )
     )
@@ -380,12 +474,70 @@ def generate_pdf(
     )
 
     # ==================================================
+    # Коммуникации за месяц
+    # ==================================================
+
+    story.append(
+        Paragraph(
+            "6.Коммуникации за месяц",
+            styles["Heading2"]
+        )
+    )
+
+    comm_rows = [
+        [
+            "Тип коммуникации",
+            "Всего",
+            "Успешно",
+            "Неудачно",
+        ]
+    ]
+
+    for name, data in communications.items():
+        comm_rows.append(
+            [
+                name.capitalize(),
+                str(data["total"]),
+                str(data["success"]),
+                str(data["failed"]),
+            ]
+        )
+
+    comm_table = Table(
+        comm_rows,
+        colWidths=[
+            70 * mm,
+            25 * mm,
+            25 * mm,
+            25 * mm,
+        ]
+    )
+
+    comm_table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
+                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+            ]
+        )
+    )
+
+    story.append(comm_table)
+
+    story.append(
+        Spacer(1, 10)
+    )
+
+
+    # ==================================================
     # Итог
     # ==================================================
 
     total_bonus = (
             profit_data["bonus"]
             + brand_data["zic_bonus_total"]
+            + brand_data["lukoil_bonus"]
             + brand_data["other_bonus_total"]
             - debt_data["responsibility"]
     )
@@ -405,6 +557,13 @@ def generate_pdf(
                 "Бонус KPI ZIC",
                 money(
                     brand_data["zic_bonus_total"]
+                ),
+            ],
+
+            [
+                "Бонус Лукойл",
+                money(
+                    brand_data["lukoil_bonus"]
                 ),
             ],
 
