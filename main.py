@@ -9,6 +9,7 @@ from parsers.profit_parser import ProfitParser
 from parsers.brand_parser import BrandParser
 from parsers.debt_parser import DebtParser
 from parsers.comm_parser import CommParser
+from parsers.cycle_parser import CycleParser
 
 from services.report_builder import build_employee_report
 
@@ -32,6 +33,7 @@ def main():
         "brand",
         "debt",
         "communications",
+        "cycle",
     ]
 
     for file_type in required:
@@ -46,9 +48,8 @@ def main():
     profit_df = read_excel(files["profit"])
     brand_df = read_excel(files["brand"])
     debt_df = read_excel(files["debt"])
-    comm_df = read_excel(
-        files["communications"]
-    )
+    comm_df = read_excel(files["communications"])
+    cycle_df = read_excel(files["cycle"])
 
     # print(comm_df.head(30))
 
@@ -58,6 +59,7 @@ def main():
     brand_parser = BrandParser(brand_df)
     debt_parser = DebtParser(debt_df)
     comm_parser = CommParser(comm_df)
+    cycle_parser = CycleParser(cycle_df)
 
     print("Сбор списка сотрудников...")
 
@@ -99,9 +101,12 @@ def main():
                 brand_parser=brand_parser,
                 debt_parser=debt_parser,
                 comm_parser=comm_parser,
+                cycle_parser=cycle_parser,
+                year=year,
+                month=month,
             )
 
-            print(report["brand"].keys())
+            # print(report["brand"].keys())
 
             safe_name = (
                 employee
@@ -121,6 +126,7 @@ def main():
                 report["profit"],
                 report["brand"],
                 report["debt"],
+                report["cycle"],
                 report["communications"],
                 year,
                 month,

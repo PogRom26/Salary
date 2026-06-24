@@ -4,6 +4,9 @@ def build_employee_report(
     brand_parser,
     debt_parser,
     comm_parser,
+    cycle_parser,
+    year,
+    month,
 ):
 
     # ==========================================
@@ -78,6 +81,19 @@ def build_employee_report(
     else:
 
         debt_ratio = 0
+
+    # ==========================================
+    # Цикл сделки
+    # ==========================================
+
+    cycle_data = (
+        cycle_parser.get_cycle_data(
+            employee,
+            year,
+            month,
+        )
+    )
+
 
     # ==========================================
     # Коммуникации за месяц
@@ -165,4 +181,7 @@ def build_employee_report(
 
         "total_bonus":
             total_bonus,
+
+        "cycle":
+            cycle_data,
     }

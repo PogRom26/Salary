@@ -58,6 +58,7 @@ def generate_pdf(
     profit_data,
     brand_data,
     debt_data,
+    cycle_data,
     communications,
     year,
     month,
@@ -419,7 +420,7 @@ def generate_pdf(
     story.append(other_table)
 
     story.append(
-        Spacer(1, 10)
+        Spacer(1, 50)
     )
 
     # ==================================================
@@ -431,6 +432,17 @@ def generate_pdf(
             "5.Дебиторская задолженность",
             styles["Heading2"]
         )
+    )
+
+    story.append(
+        Paragraph(
+            "Общая сумма просроченной дебиторской задолженности определяется по состоянию на 23:59:59 последнего дня отчетного месяца.",
+            justified_style
+        )
+    )
+
+    story.append(
+        Spacer(1, 10)
     )
 
     debt_table = Table(
@@ -473,13 +485,101 @@ def generate_pdf(
         Spacer(1, 15)
     )
 
+
+    # ==================================================
+    # Цикл сделки
+    # ==================================================
+
+    story.append(
+        Paragraph(
+            "6. Цикл сделки",
+            styles["Heading2"]
+        )
+    )
+
+    story.append(
+        Paragraph(
+            "Показатель отражает скорость прохождения сделок по воронке продаж. "
+            "Для расчёта определяется средний цикл успешно завершённых сделок («Отгрузка и доставка») и средний возраст текущих активных сделок. "
+            "Размер бонуса зависит от соотношения этих показателей: чем быстрее текущие сделки проходят этапы воронки относительно исторического цикла продаж, тем выше бонус.",
+            justified_style
+        )
+    )
+
+    story.append(
+        Spacer(1, 10)
+    )
+
+    cycle_table = Table(
+        [
+            ["Показатель", "Значение"],
+
+            [
+                "Сделок в расчете плана",
+                str(
+                    cycle_data["plan_count"]
+                )
+            ],
+
+            [
+                "Сделок в расчете факта",
+                str(
+                    cycle_data["fact_count"]
+                )
+            ],
+
+            [
+                "Цикл сделки, план",
+                f"{cycle_data['plan']:.1f} дн."
+            ],
+
+            [
+                "Цикл сделки, факт",
+                f"{cycle_data['fact']:.1f} дн."
+            ],
+
+            [
+                "Соотношение",
+                f"{cycle_data['ratio'] * 100:.2f}%"
+            ],
+
+            [
+                "Размер бонуса",
+                money(
+                    cycle_data["bonus"]
+                )
+            ],
+
+        ],
+        colWidths=[90 * mm, 50 * mm],
+    )
+
+    cycle_table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
+                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+            ]
+        )
+    )
+
+    story.append(cycle_table)
+
+    story.append(
+        Spacer(1, 10)
+    )
+
+
+
+
     # ==================================================
     # Коммуникации за месяц
     # ==================================================
 
     story.append(
         Paragraph(
-            "6.Коммуникации за месяц",
+            "7.Коммуникации за месяц",
             styles["Heading2"]
         )
     )
@@ -539,6 +639,7 @@ def generate_pdf(
             + brand_data["zic_bonus_total"]
             + brand_data["lukoil_bonus"]
             + brand_data["other_bonus_total"]
+            + cycle_data["bonus"]
             - debt_data["responsibility"]
     )
 
@@ -580,7 +681,14 @@ def generate_pdf(
             ],
 
             [
-                "ИТОГО",
+                "Бонус за цикл сделки",
+                money(
+                    cycle_data["bonus"]
+                ),
+            ],
+
+            [
+                "ИТОГО, премия за месяц к выплате",
                 money(total_bonus),
             ],
         ],
