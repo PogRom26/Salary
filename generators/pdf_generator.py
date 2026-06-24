@@ -60,6 +60,7 @@ def generate_pdf(
     debt_data,
     cycle_data,
     communications,
+    timesheet_data,
     year,
     month,
 
@@ -174,7 +175,7 @@ def generate_pdf(
             [
                 ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
                 ("GRID", (0, 0), (-1, -1), 1, colors.black),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightblue),
             ]
         )
     )
@@ -235,7 +236,7 @@ def generate_pdf(
             [
                 ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
                 ("GRID", (0, 0), (-1, -1), 1, colors.black),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgoldenrodyellow),
             ]
         )
     )
@@ -260,10 +261,10 @@ def generate_pdf(
     story.append(
         Paragraph(
             "Размер бонусирования при продаже "
-            "от 0 до 499 кг — 0 руб./кг, "
-            "от 500 до 1999 кг — 5 руб./кг, "
-            "от 2000 до 4999 кг — 8 руб./кг, "
-            "от 5000 кг — 10 руб./кг.",
+            "от 0 до 499 кг — 0 рублей за кг., "
+            "от 500 до 1999 кг — 5 рублей за кг., "
+            "от 2000 до 4999 кг — 8 рублей за кг., "
+            "от 5000 кг — 10 рублей за кг.",
             justified_style
         )
     )
@@ -306,7 +307,7 @@ def generate_pdf(
                 [
                     ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
                     ("GRID", (0, 0), (-1, -1), 1, colors.black),
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.Color(1, 0.9, 0.9)),
                 ]
             )
         )
@@ -412,7 +413,7 @@ def generate_pdf(
             [
                 ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
                 ("GRID", (0, 0), (-1, -1), 1, colors.black),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgreen),
             ]
         )
     )
@@ -474,7 +475,7 @@ def generate_pdf(
             [
                 ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
                 ("GRID", (0, 0), (-1, -1), 1, colors.black),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.beige),
             ]
         )
     )
@@ -482,7 +483,7 @@ def generate_pdf(
     story.append(debt_table)
 
     story.append(
-        Spacer(1, 15)
+        Spacer(1, 5)
     )
 
 
@@ -507,7 +508,7 @@ def generate_pdf(
     )
 
     story.append(
-        Spacer(1, 10)
+        Spacer(1, 5)
     )
 
     cycle_table = Table(
@@ -559,7 +560,7 @@ def generate_pdf(
             [
                 ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
                 ("GRID", (0, 0), (-1, -1), 1, colors.black),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightyellow),
             ]
         )
     )
@@ -567,7 +568,7 @@ def generate_pdf(
     story.append(cycle_table)
 
     story.append(
-        Spacer(1, 10)
+        Spacer(1, 5)
     )
 
 
@@ -618,7 +619,7 @@ def generate_pdf(
             [
                 ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
                 ("GRID", (0, 0), (-1, -1), 1, colors.black),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightblue),
             ]
         )
     )
@@ -626,7 +627,7 @@ def generate_pdf(
     story.append(comm_table)
 
     story.append(
-        Spacer(1, 10)
+        Spacer(1, 5)
     )
 
 
@@ -641,6 +642,11 @@ def generate_pdf(
             + brand_data["other_bonus_total"]
             + cycle_data["bonus"]
             - debt_data["responsibility"]
+    )
+
+    salary_total = (
+            total_bonus
+            + timesheet_data["salary"]
     )
 
     total_table = Table(
@@ -691,6 +697,26 @@ def generate_pdf(
                 "ИТОГО, премия за месяц к выплате",
                 money(total_bonus),
             ],
+
+            [
+                "Отработано часов",
+                f"{timesheet_data['hours']:.2f}",
+            ],
+
+            [
+                "Оклад",
+                money(
+                    timesheet_data["salary"]
+                ),
+            ],
+
+            [
+                "Размер заработной платы",
+                money(
+                    total_bonus
+                    + timesheet_data["salary"]
+                ),
+            ],
         ],
         colWidths=[90 * mm, 50 * mm],
     )
@@ -700,8 +726,22 @@ def generate_pdf(
             [
                 ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
                 ("GRID", (0, 0), (-1, -1), 1, colors.black),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-                ("BACKGROUND", (0, -1), (-1, -1), colors.lightgrey),
+
+                # ИТОГО
+                ("BACKGROUND", (0, -4), (-1, -4), colors.Color(1, 0.9, 0.9)),
+                ("TEXTCOLOR", (0, -4), (-1, -4), colors.Color(1, 0, 0)),
+
+                # Оклад
+                # ("BACKGROUND", (0, -2), (-1, -2), colors.lightyellow),
+
+                # Размер заработной платы
+                ("BACKGROUND", (0, -1), (-1, -1),
+                 colors.Color(0.85, 1, 0.85)),
+
+                ("TEXTCOLOR", (0, -1), (-1, -1),
+                 colors.darkgreen),
+
+                # ("FONTSIZE", (0, -1), (-1, -1), 12),
             ]
         )
     )

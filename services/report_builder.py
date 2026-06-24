@@ -5,6 +5,7 @@ def build_employee_report(
     debt_parser,
     comm_parser,
     cycle_parser,
+    timesheet_parser,
     year,
     month,
 ):
@@ -120,7 +121,18 @@ def build_employee_report(
             + zic_bonus_total
             + lukoil_bonus
             + other_bonus_total
+            + cycle_data["bonus"]
             - responsibility
+    )
+
+    # ==========================================
+    # Оклад
+    # ==========================================
+
+    timesheet_data = (
+        timesheet_parser.get_data(
+            employee
+        )
     )
 
     # ==========================================
@@ -184,4 +196,7 @@ def build_employee_report(
 
         "cycle":
             cycle_data,
+
+        "timesheet":
+            timesheet_data,
     }

@@ -1,0 +1,91 @@
+import pandas as pd
+
+from config import HOUR_RATE
+
+
+class TimesheetParser:
+
+    def __init__(self, df):
+
+        self.df = df
+
+    # ==========================================
+    # Получить данные сотрудника
+    # ==========================================
+
+    def get_data(self, employee):
+
+        parts = employee.split()
+
+        if len(parts) < 2:
+
+            return {
+                "hours": 0,
+                "salary": 0,
+            }
+
+        surname = parts[0].lower()
+
+        first_letter = (
+            parts[1][0].lower()
+        )
+
+        for _, row in self.df.iterrows():
+
+            try:
+
+                name = str(
+                    row.iloc[0]
+                ).strip()
+
+                if (
+                    surname
+                    not in name.lower()
+                ):
+                    continue
+
+                if (
+                    first_letter
+                    not in name.lower()
+                ):
+                    continue
+
+                hours_text = str(
+                    row.iloc[1]
+                )
+
+                hours_text = (
+                    hours_text
+                    .split("\n")[0]
+                    .replace(",", ".")
+                    .strip()
+                )
+
+                hours = float(
+                    hours_text
+                )
+
+                return {
+
+                    "hours": round(
+                        hours,
+                        2
+                    ),
+
+                    "salary": round(
+                        hours
+                        * HOUR_RATE,
+                        2
+                    ),
+                }
+
+            except Exception:
+
+                continue
+
+        return {
+
+            "hours": 0,
+
+            "salary": 0,
+        }

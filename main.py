@@ -10,6 +10,8 @@ from parsers.brand_parser import BrandParser
 from parsers.debt_parser import DebtParser
 from parsers.comm_parser import CommParser
 from parsers.cycle_parser import CycleParser
+from parsers.timesheet_parser import TimesheetParser
+
 
 from services.report_builder import build_employee_report
 
@@ -34,6 +36,7 @@ def main():
         "debt",
         "communications",
         "cycle",
+        "timesheet",
     ]
 
     for file_type in required:
@@ -50,6 +53,7 @@ def main():
     debt_df = read_excel(files["debt"])
     comm_df = read_excel(files["communications"])
     cycle_df = read_excel(files["cycle"])
+    timesheet_df = read_excel(files["timesheet"])
 
     # print(comm_df.head(30))
 
@@ -60,6 +64,7 @@ def main():
     debt_parser = DebtParser(debt_df)
     comm_parser = CommParser(comm_df)
     cycle_parser = CycleParser(cycle_df)
+    timesheet_parser = TimesheetParser(timesheet_df)
 
     print("Сбор списка сотрудников...")
 
@@ -102,6 +107,7 @@ def main():
                 debt_parser=debt_parser,
                 comm_parser=comm_parser,
                 cycle_parser=cycle_parser,
+                timesheet_parser=timesheet_parser,
                 year=year,
                 month=month,
             )
@@ -128,6 +134,7 @@ def main():
                 report["debt"],
                 report["cycle"],
                 report["communications"],
+                report["timesheet"],
                 year,
                 month,
             )

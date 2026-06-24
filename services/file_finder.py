@@ -21,7 +21,10 @@ def find_files(folder):
         elif "коммуникации" in name:
             files["communications"] = file
 
-        elif "цикл" in file.name:
+        elif "цикл" in name:
             files["cycle"] = file
+
+        elif "табель" in name:
+            files["timesheet"] = file
 
     return files
