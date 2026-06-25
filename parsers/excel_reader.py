@@ -1,15 +1,29 @@
-from pathlib import Path
 import pandas as pd
 
 
 def read_excel(file_path):
 
-    ext = Path(file_path).suffix.lower()
+    print(f"Открываю: {file_path}")
 
-    if ext == ".xlsx":
-        return pd.read_excel(file_path, engine="openpyxl")
+    try:
 
-    if ext == ".xls":
-        return pd.read_excel(file_path, engine="xlrd")
+        return pd.read_excel(
+            file_path,
+            engine="openpyxl"
+        )
 
-    raise Exception(f"Unknown format {ext}")
+    except Exception:
+
+        try:
+
+            return pd.read_excel(
+                file_path,
+                engine="xlrd"
+            )
+
+        except Exception as e:
+
+            raise Exception(
+                f"Не удалось открыть файл "
+                f"{file_path}\n{e}"
+            )

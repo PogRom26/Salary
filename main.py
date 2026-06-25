@@ -16,6 +16,7 @@ from parsers.timesheet_parser import TimesheetParser
 from services.report_builder import build_employee_report
 
 from generators.pdf_generator import generate_pdf
+from generators.docx_generator import generate_docx
 
 
 def main():
@@ -121,9 +122,36 @@ def main():
                 .replace(":", "_")
             )
 
+            MONTHS = {
+                1: "январь",
+                2: "февраль",
+                3: "март",
+                4: "апрель",
+                5: "май",
+                6: "июнь",
+                7: "июль",
+                8: "август",
+                9: "сентябрь",
+                10: "октябрь",
+                11: "ноябрь",
+                12: "декабрь",
+            }
+
+            surname = employee.split()[0]
+
+            base_name = (
+                f"{surname}_{year}_"
+                f"{MONTHS[month]}"
+            )
+
             pdf_file = (
-                report_dir
-                / f"{safe_name}.pdf"
+                    report_dir
+                    / f"{base_name}.pdf"
+            )
+
+            docx_file = (
+                    report_dir
+                    / f"{base_name}.docx"
             )
 
             generate_pdf(
@@ -138,6 +166,15 @@ def main():
                 year,
                 month,
             )
+
+            generate_docx(
+                docx_file,
+                employee,
+                report,
+                year,
+                month,
+            )
+
 
             print(
                 f"Создан отчет: {pdf_file.name}"
