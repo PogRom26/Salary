@@ -1,13 +1,5 @@
 import pandas as pd
-
-
-ZIC_BONUS_BASE = 40000
-OTHER_BONUS_BASE = 30000
-OTHER_KPI_WEIGHTS = {
-    "В2В Полярная Звезда": 22.5,
-    "В2В VegaOil": 50.0,
-    "B2B GSK": 27.5,
-}
+from config import ZIC_BONUS_BASE, OTHER_BONUS_BASE, OTHER_KPI_WEIGHTS
 
 
 class BrandParser:

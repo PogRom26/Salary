@@ -1,9 +1,16 @@
-PROFIT_BONUS_PERCENT = 0.05
+PROFIT_BONUS_PERCENT = 0.05 # Размер премии от дохода в %
 
-BRAND_BONUS_BASE = 10000
+ZIC_BONUS_BASE = 40000 # базовый размер премии за ZIC
+OTHER_BONUS_BASE = 30000 # базовый размер премии за другие бренды
+OTHER_KPI_WEIGHTS = {   # распределение весов по брендам
+    "В2В Полярная Звезда": 22.5,
+    "В2В VegaOil": 50.0,
+    "B2B GSK": 27.5,
+}
 
-OVERDUE_DEBT_PERCENT = 0.01
+OVERDUE_DEBT_PERCENT = 0.01 # размер ответственности за ПДЗ %
 
-CYCLE_BONUS_BASE = 20000
+CYCLE_BONUS_BASE = 20000 # базовый размер премии за циклы сделок
 
-HOUR_RATE = 322.59
+HOUR_RATE = 322.59 # стоимость часа работы менеджера
+
