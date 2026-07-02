@@ -173,6 +173,27 @@ class ProfitParser:
             "bonus": 0,
         }
 
+    def get_total(self):
+        """Return the direction-wide values from the report's 'Итого' row."""
+        for _, row in self.df.iterrows():
+            value = row.iloc[self.manager_col]
+            if pd.isna(value) or str(value).strip().lower() != "итого":
+                continue
+
+            def number(column):
+                try:
+                    return float(row.iloc[column])
+                except (TypeError, ValueError):
+                    return 0.0
+
+            return {
+                "sales": number(self.sales_col),
+                "income": number(self.income_col),
+                "profitability": number(self.profitability_col),
+            }
+
+        raise ValueError("В отчете Profit не найдена строка 'Итого'")
+
     # ==================================================
     # Отладка
     # ==================================================

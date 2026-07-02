@@ -4,6 +4,7 @@ from pathlib import Path
 def find_files(folder):
 
     files = {}
+    timesheets = []
 
     for file in Path(folder).iterdir():
 
@@ -25,6 +26,9 @@ def find_files(folder):
             files["cycle"] = file
 
         elif "табель" in name:
-            files["timesheet"] = file
+            timesheets.append(file)
+
+    if timesheets:
+        files["timesheet"] = sorted(timesheets)
 
     return files

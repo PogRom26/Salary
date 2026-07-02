@@ -106,15 +106,17 @@ def build_employee_report(
         )
     )
 
-    print("\n===================")
-    print(employee)
-    print(comm_data)
-    print("===================\n")
-
-
     # ==========================================
     # Общий итог
     # ==========================================
+
+    additional_payments = {
+        "items": [
+            {"description": "", "amount": None},
+            {"description": "", "amount": None},
+        ],
+        "total": 0.0,
+    }
 
     total_bonus = (
             income_bonus
@@ -122,6 +124,7 @@ def build_employee_report(
             + lukoil_bonus
             + other_bonus_total
             + cycle_data["bonus"]
+            + additional_payments["total"]
             - responsibility
     )
 
@@ -186,10 +189,22 @@ def build_employee_report(
 
             "ratio":
                 debt_ratio,
+
+            "threshold":
+                debt_data["threshold"],
+
+            "large_items":
+                debt_data["large_items"],
+
+            "contractor_column_found":
+                debt_data["contractor_column_found"],
         },
 
         "communications":
             comm_data,
+
+        "additional_payments":
+            additional_payments,
 
         "total_bonus":
             total_bonus,

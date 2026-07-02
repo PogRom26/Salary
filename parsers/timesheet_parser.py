@@ -13,7 +13,7 @@ class TimesheetParser:
     # Получить данные сотрудника
     # ==========================================
 
-    def get_data(self, employee):
+    def get_data(self, employee, hour_rate=HOUR_RATE):
 
         parts = employee.split()
 
@@ -74,7 +74,7 @@ class TimesheetParser:
 
                     "salary": round(
                         hours
-                        * HOUR_RATE,
+                        * hour_rate,
                         2
                     ),
                 }

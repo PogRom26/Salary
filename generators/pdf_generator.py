@@ -1,4 +1,5 @@
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
@@ -48,6 +49,24 @@ def money(value):
         return "0.00"
 
 
+def _cell(value, style):
+    text = "" if value is None else str(value)
+    return Paragraph(escape(text).replace("\n", "<br/>"), style)
+
+
+def _keep_headings_with_tables(story):
+    """Prevent a section heading/description from being orphaned from its table."""
+    section_started = False
+    for flowable in story:
+        if isinstance(flowable, Paragraph) and flowable.style.name == "Heading2":
+            section_started = True
+        if section_started:
+            flowable.keepWithNext = True
+        if isinstance(flowable, Table):
+            flowable.keepWithNext = False
+            section_started = False
+
+
 # ==================================================
 # Генерация PDF
 # ==================================================
@@ -61,6 +80,7 @@ def generate_pdf(
     cycle_data,
     communications,
     timesheet_data,
+    additional_payments,
     year,
     month,
 
@@ -106,6 +126,17 @@ def generate_pdf(
 
     for style in styles.byName.values():
         style.fontName = "DejaVuSans"
+
+    debt_cell_style = ParagraphStyle(
+        "DebtCell",
+        parent=styles["BodyText"],
+        fontName="DejaVuSans",
+        fontSize=7.5,
+        leading=9,
+        splitLongWords=True,
+        spaceBefore=0,
+        spaceAfter=0,
+    )
 
     story = []
 
@@ -482,10 +513,36 @@ def generate_pdf(
 
     story.append(debt_table)
 
+    debt_rows = [[
+        _cell("Контрагент", debt_cell_style),
+        _cell("Сумма задолженности", debt_cell_style),
+        _cell("Комментарий", debt_cell_style),
+    ]]
+    debt_rows += [[
+        _cell(item["contractor"] or "В исходном debt.xlsx нет колонки «Контрагент»", debt_cell_style),
+        _cell(money(item["overdue"]), debt_cell_style),
+        _cell(item["comment"], debt_cell_style),
+    ] for item in debt_data["large_items"]]
+    if len(debt_rows) == 1:
+        debt_rows.append([_cell("Случаи не найдены", debt_cell_style), "", ""])
+
+    debt_details_table = Table(
+        debt_rows,
+        colWidths=[65 * mm, 35 * mm, 80 * mm],
+        repeatRows=1,
+    )
+    debt_details_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
+        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.beige),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(Spacer(1, 4))
+    story.append(debt_details_table)
+
     story.append(
         Spacer(1, 5)
     )
-
 
     # ==================================================
     # Цикл сделки
@@ -632,6 +689,26 @@ def generate_pdf(
 
 
     # ==================================================
+    # Дополнительные выплаты
+    # ==================================================
+
+    story.append(Paragraph("8. Дополнительные выплаты", styles["Heading2"]))
+    additional_rows = [["Описание", "Сумма"]]
+    for item in additional_payments["items"]:
+        additional_rows.append([
+            item["description"],
+            "" if item["amount"] is None else money(item["amount"]),
+        ])
+    additional_table = Table(additional_rows, colWidths=[90 * mm, 50 * mm])
+    additional_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
+        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.lightblue),
+    ]))
+    story.append(additional_table)
+    story.append(Spacer(1, 5))
+
+    # ==================================================
     # Итог
     # ==================================================
 
@@ -641,6 +718,7 @@ def generate_pdf(
             + brand_data["lukoil_bonus"]
             + brand_data["other_bonus_total"]
             + cycle_data["bonus"]
+            + additional_payments["total"]
             - debt_data["responsibility"]
     )
 
@@ -691,6 +769,11 @@ def generate_pdf(
                 money(
                     cycle_data["bonus"]
                 ),
+            ],
+
+            [
+                "Дополнительные выплаты",
+                money(additional_payments["total"]),
             ],
 
             [
@@ -748,11 +831,12 @@ def generate_pdf(
 
     story.append(
         Paragraph(
-            "Итоговый расчёт",
+            "9. Итоговый расчёт",
             styles["Heading2"]
         )
     )
 
     story.append(total_table)
 
+    _keep_headings_with_tables(story)
     doc.build(story)

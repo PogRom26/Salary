@@ -274,6 +274,38 @@ class BrandParser:
                 + other_bonus_total,
         }
 
+    def get_kpi_row(self, employee, kpi_part):
+        """Find a raw KPI row for an employee by a case-insensitive name part."""
+        employee = str(employee).strip()
+        current_employee = None
+        needle = str(kpi_part).strip().lower()
+
+        for _, row in self.df.iterrows():
+            if self._is_employee(row.iloc[0]):
+                current_employee = str(row.iloc[0]).strip()
+                continue
+            if current_employee != employee:
+                continue
+
+            name = row.iloc[3]
+            if pd.isna(name) or needle not in str(name).strip().lower():
+                continue
+
+            def number(index):
+                try:
+                    return float(row.iloc[index])
+                except (TypeError, ValueError):
+                    return 0.0
+
+            return {
+                "brand": str(name).strip(),
+                "plan": number(5),
+                "fact": number(7),
+                "percent": number(8),
+            }
+
+        return {"brand": kpi_part, "plan": 0.0, "fact": 0.0, "percent": 0.0}
+
     # ==================================================
     # Отладка
     # ==================================================
