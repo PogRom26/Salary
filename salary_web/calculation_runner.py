@@ -1,0 +1,112 @@
+import json
+from pathlib import Path
+
+from sqlalchemy.orm import Session
+
+from directions.b2b.chief_salary import calculate_chief
+from directions.b2b.manager_salary import calculate_managers
+from services.calculation_context import load_context_from_files
+from services.report_io import report_stem
+from salary_web.config import GENERATED_DIR, REQUIRED_REPORT_TYPES
+from salary_web.models import (
+    AdditionalPayment,
+    Calculation,
+    CalculationAdjustment,
+    Employee,
+    Period,
+    PeriodStatus,
+)
+from salary_web.report_storage import report_completeness
+
+
+def calculate_period(db: Session, period: Period) -> list[Calculation]:
+    completeness = report_completeness(period)
+    if not completeness["complete"]:
+        missing = ", ".join(completeness["missing"])
+        raise ValueError(f"Не хватает обязательных отчетов: {missing}")
+    if not completeness["validated"]:
+        raise ValueError("Нельзя запустить расчет: отчеты еще не прошли проверку")
+
+    files = _period_files(period)
+    context = load_context_from_files(period.year, period.month, files)
+
+    manager_reports = calculate_managers(context)
+    reports = [*manager_reports, calculate_chief(context, manager_reports)]
+
+    output_dir = GENERATED_DIR / str(period.year) / f"{period.month:02d}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    calculations = []
+    for report in reports:
+        employee = _get_or_create_employee(
+            db,
+            full_name=report["employee"],
+            role=report.get("report_type", "manager"),
+        )
+        snapshot_json = json.dumps(
+            report,
+            ensure_ascii=False,
+            indent=2,
+            allow_nan=False,
+        )
+        snapshot_path = output_dir / f"{report_stem(report['employee'], period.year, period.month)}.json"
+        snapshot_path.write_text(snapshot_json, encoding="utf-8")
+
+        calculation = (
+            db.query(Calculation)
+            .filter(
+                Calculation.period_id == period.id,
+                Calculation.employee_id == employee.id,
+            )
+            .one_or_none()
+        )
+        if calculation is None:
+            calculation = Calculation(
+                period_id=period.id,
+                employee_id=employee.id,
+            )
+            db.add(calculation)
+
+        calculation.status = "calculated"
+        calculation.snapshot_json = snapshot_json
+        calculation.pdf_path = None
+        if calculation.id is not None:
+            db.query(AdditionalPayment).filter(
+                AdditionalPayment.calculation_id == calculation.id
+            ).delete()
+            db.query(CalculationAdjustment).filter(
+                CalculationAdjustment.calculation_id == calculation.id
+            ).delete()
+        calculations.append(calculation)
+
+    period.status = PeriodStatus.CALCULATION_CREATED.value
+    db.flush()
+    return calculations
+
+
+def _period_files(period: Period) -> dict[str, Path | list[Path]]:
+    reports_by_type: dict[str, list[Path]] = {}
+    for report in period.reports:
+        reports_by_type.setdefault(report.report_type, []).append(Path(report.stored_path))
+
+    files: dict[str, Path | list[Path]] = {}
+    for report_type in REQUIRED_REPORT_TYPES:
+        paths = reports_by_type.get(report_type, [])
+        if not paths:
+            continue
+        if report_type == "timesheet":
+            files[report_type] = paths
+        else:
+            files[report_type] = paths[-1]
+    return files
+
+
+def _get_or_create_employee(db: Session, full_name: str, role: str) -> Employee:
+    employee = db.query(Employee).filter(Employee.full_name == full_name).one_or_none()
+    if employee is None:
+        employee = Employee(full_name=full_name, role=role)
+        db.add(employee)
+        db.flush()
+    else:
+        employee.role = role
+    return employee

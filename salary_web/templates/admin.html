@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>Админка</h1>
+
+  <div class="compact-grid">
+    <div class="card compact-card">
+      <h2>Создать отдел</h2>
+      <form method="post" action="/admin/departments">
+        <label>Код<br><input type="text" name="code" placeholder="b2b" required></label><br>
+        <label>Название<br><input type="text" name="name" placeholder="B2B-направление" required></label><br>
+        <button type="submit">Создать отдел</button>
+      </form>
+    </div>
+
+    <div class="card compact-card">
+      <h2>Создать пользователя</h2>
+      <form method="post" action="/admin/users">
+        <label>Логин<br><input type="text" name="username" required></label><br>
+        <label>Пароль<br><input type="password" name="password" required></label><br>
+        <label>Имя<br><input type="text" name="full_name"></label><br>
+        <label><input type="checkbox" name="is_admin" value="1"> Администратор</label>
+        <h4>Доступные отделы</h4>
+        {% for department in departments %}
+          <label><input type="checkbox" name="department_ids" value="{{ department.id }}"> {{ department.name }}</label><br>
+        {% endfor %}
+        <button type="submit">Создать пользователя</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Пользователи и права</h2>
+    <table>
+      <tr>
+        <th>Данные пользователя</th>
+        <th>Права</th>
+        <th>Новый пароль</th>
+        <th>Удаление</th>
+      </tr>
+      {% for user in users %}
+        <tr>
+          <td>
+            <form id="user-profile-{{ user.id }}" method="post" action="/admin/users/{{ user.id }}/profile">
+              <label>Логин<br><input type="text" name="username" value="{{ user.username }}" required></label><br>
+              <label>Имя<br><input type="text" name="full_name" value="{{ user.full_name or '' }}"></label>
+            </form>
+            <button form="user-profile-{{ user.id }}" type="submit">Сохранить данные</button>
+          </td>
+          <td>
+            <form id="user-rights-{{ user.id }}" method="post" action="/admin/users/{{ user.id }}/departments">
+              <label><input type="checkbox" name="is_admin" value="1" {% if user.is_admin %}checked{% endif %}> Администратор</label><br>
+              <label><input type="checkbox" name="is_active" value="1" {% if user.is_active %}checked{% endif %}> Активен</label><br>
+              {% set user_department_ids = user.departments | map(attribute='department_id') | list %}
+              {% for department in departments %}
+                <label>
+                  <input type="checkbox" name="department_ids" value="{{ department.id }}" {% if department.id in user_department_ids %}checked{% endif %}>
+                  {{ department.name }}
+                </label><br>
+              {% endfor %}
+            </form>
+            <button form="user-rights-{{ user.id }}" type="submit">Сохранить права</button>
+          </td>
+          <td>
+            <form method="post" action="/admin/users/{{ user.id }}/password">
+              <input type="password" name="password" required>
+              <button type="submit">Сменить пароль</button>
+            </form>
+          </td>
+          <td>
+            {% if current_user and user.id == current_user.id %}
+              <span class="muted">Нельзя удалить себя</span>
+            {% else %}
+              <form method="post" action="/admin/users/{{ user.id }}/delete" onsubmit="return confirm('Удалить пользователя {{ user.username }}?');">
+                <button type="submit">Удалить</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="compact-grid">
+    <div class="card compact-card">
+      <h2>Создать API-ключ</h2>
+      <p class="muted">
+        API-ключ нужен для внешних систем: 1С, CRM и других интеграций.
+        Ключ будет показан только один раз после создания.
+      </p>
+      {% if generated_api_key %}
+        <div class="status-pill">
+          Новый API-ключ:
+          <code>{{ generated_api_key }}</code>
+        </div>
+        <p class="muted">Скопируй его сейчас. Потом в открытом виде он не хранится.</p>
+      {% endif %}
+      <form method="post" action="/admin/api-keys">
+        <label>Название<br><input type="text" name="name" placeholder="1C B2B" required></label><br>
+        <h4>Доступные направления</h4>
+        {% for department in departments %}
+          <label><input type="checkbox" name="department_ids" value="{{ department.id }}"> {{ department.name }}</label><br>
+        {% endfor %}
+        <button type="submit">Создать API-ключ</button>
+      </form>
+    </div>
+
+    <div class="card compact-card">
+      <h2>Как использовать API-ключ</h2>
+      <p>Передавай ключ в заголовке:</p>
+      <pre><code>X-API-Key: sk_salary_...</code></pre>
+      <p>Пример:</p>
+      <pre><code>curl -X GET /api/departments/b2b/periods/2026/6 \
+  -H "X-API-Key: sk_salary_..."</code></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>API-ключи и права</h2>
+    <table>
+      <tr>
+        <th>Название</th>
+        <th>Статус</th>
+        <th>Последнее использование</th>
+        <th>Права</th>
+        <th>Удаление</th>
+      </tr>
+      {% for api_key in api_keys %}
+        <tr>
+          <td>
+            <form id="api-key-rights-{{ api_key.id }}" method="post" action="/admin/api-keys/{{ api_key.id }}/rights">
+              <label>Название<br><input type="text" name="name" value="{{ api_key.name }}" required></label>
+            </form>
+          </td>
+          <td>{{ "Активен" if api_key.is_active else "Выключен" }}</td>
+          <td>{{ api_key.last_used_at or "" }}</td>
+          <td>
+              <label><input form="api-key-rights-{{ api_key.id }}" type="checkbox" name="is_active" value="1" {% if api_key.is_active %}checked{% endif %}> Активен</label><br>
+              {% set api_key_department_ids = api_key.departments | map(attribute='department_id') | list %}
+              {% for department in departments %}
+                <label>
+                  <input form="api-key-rights-{{ api_key.id }}" type="checkbox" name="department_ids" value="{{ department.id }}" {% if department.id in api_key_department_ids %}checked{% endif %}>
+                  {{ department.name }}
+                </label><br>
+              {% endfor %}
+            <button form="api-key-rights-{{ api_key.id }}" type="submit">Сохранить права</button>
+          </td>
+          <td>
+            <form method="post" action="/admin/api-keys/{{ api_key.id }}/delete" onsubmit="return confirm('Удалить API-ключ {{ api_key.name }}?');">
+              <button type="submit">Удалить</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </table>
+  </div>
+{% endblock %}

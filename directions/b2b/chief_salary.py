@@ -1,6 +1,6 @@
 """Direction totals and salary calculation for the configured B2B chief."""
 
-from config import (
+from directions.b2b.config import (
     CHIEF_CYCLE_BONUS_BASE,
     CHIEF_DEBT_THRESHOLD,
     CHIEF_EMPLOYEE,
@@ -16,10 +16,11 @@ from config import (
     CHIEF_SPECIAL_PRODUCT_WEIGHTS,
     CHIEF_ZIC_BONUS_BASE,
 )
+from services.rounding import round_half_up
 
 
 def _scaled_bonus(percent, base):
-    return round(float(percent) / 100 * base, 2)
+    return round_half_up(float(percent) / 100 * base)
 
 
 def calculate_chief(context, manager_reports):
@@ -48,11 +49,13 @@ def calculate_chief(context, manager_reports):
     cycle_count_fact = sum(item["cycle"]["fact_count"] for item in manager_reports)
     plan = sum(item["cycle"]["plan_days_sum"] for item in manager_reports) / cycle_count_plan if cycle_count_plan else 0
     fact = sum(item["cycle"]["fact_days_sum"] for item in manager_reports) / cycle_count_fact if cycle_count_fact else 0
+    plan = round_half_up(plan)
+    fact = round_half_up(fact)
     cycle_ratio = plan / fact if fact else 0
     cycle = {
-        "plan": round(plan, 1), "fact": round(fact, 1), "ratio": round(cycle_ratio, 4),
+        "plan": plan, "fact": fact, "ratio": round(cycle_ratio, 4),
         "bonus_base": CHIEF_CYCLE_BONUS_BASE,
-        "bonus": round(cycle_ratio * CHIEF_CYCLE_BONUS_BASE, 2),
+        "bonus": round_half_up(cycle_ratio * CHIEF_CYCLE_BONUS_BASE),
         "plan_count": cycle_count_plan, "fact_count": cycle_count_fact,
     }
 
@@ -63,7 +66,7 @@ def calculate_chief(context, manager_reports):
     lukoil_items = [
         {
             "employee": item["employee"],
-            "manager_bonus": round(item["brand"]["lukoil_bonus"], 2),
+            "manager_bonus": round_half_up(item["brand"]["lukoil_bonus"]),
         }
         for item in manager_reports
         if item["brand"]["lukoil_bonus"] > 0
@@ -71,9 +74,9 @@ def calculate_chief(context, manager_reports):
     lukoil_manager_bonus_total = sum(item["manager_bonus"] for item in lukoil_items)
     lukoil = {
         "manager_items": lukoil_items,
-        "manager_bonus_total": round(lukoil_manager_bonus_total, 2),
+        "manager_bonus_total": round_half_up(lukoil_manager_bonus_total),
         "coefficient": CHIEF_LUKOIL_BONUS_COEFFICIENT,
-        "bonus": round(lukoil_manager_bonus_total * CHIEF_LUKOIL_BONUS_COEFFICIENT, 2),
+        "bonus": round_half_up(lukoil_manager_bonus_total * CHIEF_LUKOIL_BONUS_COEFFICIENT),
     }
 
     key_clients_profit = {
@@ -104,7 +107,7 @@ def calculate_chief(context, manager_reports):
         "items": raw_other, "percent": round(total_percent, 2),
         "calculation_percent": round(ratio * 100, 2),
         "bonus_base": CHIEF_OTHER_BONUS_BASE,
-        "bonus": round(CHIEF_OTHER_BONUS_BASE * ratio, 2),
+        "bonus": round_half_up(CHIEF_OTHER_BONUS_BASE * ratio),
     }
 
     debt = context["debt"].get_direction_data(CHIEF_DEBT_THRESHOLD)
@@ -120,10 +123,10 @@ def calculate_chief(context, manager_reports):
         "total": 0.0,
     }
 
-    total_bonus = round(
+    total_bonus = round_half_up(
         profit_kpi["bonus"] + cycle["bonus"] + zic["bonus"] + other["bonus"]
         + lukoil["bonus"] + key_clients_profit["bonus"]
-        + additional_payments["total"] - debt["responsibility"], 2
+        + additional_payments["total"] - debt["responsibility"]
     )
     return {
         "report_type": "chief", "employee": CHIEF_EMPLOYEE,
@@ -133,5 +136,5 @@ def calculate_chief(context, manager_reports):
         "key_clients_profit": key_clients_profit,
         "additional_payments": additional_payments,
         "timesheet": timesheet, "total_bonus": total_bonus,
-        "salary_total": round(total_bonus + timesheet["salary"], 2),
+        "salary_total": round_half_up(total_bonus + timesheet["salary"]),
     }

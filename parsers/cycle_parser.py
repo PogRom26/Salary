@@ -3,7 +3,8 @@ from calendar import monthrange
 
 import pandas as pd
 
-from config import CYCLE_BONUS_BASE
+from directions.b2b.config import CYCLE_BONUS_BASE
+from services.rounding import round_half_up
 
 
 class CycleParser:
@@ -301,6 +302,12 @@ class CycleParser:
             else 0
         )
 
+        # В рабочих Excel-расчётках исторический план фиксируется до сотых,
+        # а текущий средний цикл CRM — до десятых (например, 641,5).
+        # Расчёт бонуса должен использовать именно эти зафиксированные значения.
+        plan = round_half_up(plan, 2)
+        fact = round_half_up(fact, 1)
+
         # ==============================================
         # Бонус
         # ==============================================
@@ -311,7 +318,7 @@ class CycleParser:
                 plan / fact
             )
 
-            bonus = (
+            bonus = round_half_up(
                 ratio
                 * CYCLE_BONUS_BASE
             )
@@ -323,25 +330,16 @@ class CycleParser:
 
         return {
 
-            "plan": round(
-                plan,
-                1
-            ),
+            "plan": plan,
 
-            "fact": round(
-                fact,
-                1
-            ),
+            "fact": fact,
 
             "ratio": round(
                 ratio,
                 4
             ),
 
-            "bonus": round(
-                bonus,
-                2
-            ),
+            "bonus": bonus,
 
             # диагностика
 

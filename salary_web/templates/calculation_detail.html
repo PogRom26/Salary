@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>Расчет: {{ calculation.employee.full_name }}</h1>
+  <p>
+    Период: {{ months[calculation.period.month] | capitalize }} {{ calculation.period.year }}
+  </p>
+
+  <div class="top-actions">
+    <form method="post" action="/calculations/{{ calculation.id }}/pdf" class="inline-form">
+      <input type="hidden" name="return_to" value="/calculations/{{ calculation.id }}">
+      <button type="submit" {% if not calculation.snapshot_json %}disabled{% endif %}>Создать расчет в PDF</button>
+    </form>
+    {% if calculation.pdf_path %}
+      <a class="secondary-button" href="/calculations/{{ calculation.id }}/pdf/download">Скачать PDF</a>
+    {% endif %}
+    <a class="secondary-button" href="/periods/{{ calculation.period.year }}/{{ '%02d'|format(calculation.period.month) }}#calculations">Вернуться к списку расчетов</a>
+  </div>
+
+  <div class="card final-summary-card">
+    <h2>Итоговый расчёт</h2>
+    <table class="final-summary-table">
+      <tr>
+        <th>Показатель</th>
+        <th>Сумма</th>
+      </tr>
+      {% for row in final_summary_rows %}
+        <tr class="{{ row.style }}">
+          <td>{{ row.label }}</td>
+          <td>{{ row.value }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="calculation-layout">
+    <aside class="calculation-sidebar">
+      <div class="card toc-card">
+        <div class="toc-employee">{{ calculation.employee.full_name }}</div>
+        <h2>Оглавление</h2>
+        <ol class="toc-list">
+          {% for section in sections %}
+            <li><a href="#section-{{ section.code }}">{{ section.title }}</a></li>
+          {% endfor %}
+          <li><a href="#additional-payment-form">Дополнительная выплата</a></li>
+          <li><a href="#manual-entries">История ручных записей</a></li>
+          <li><a href="#pdf-actions">Сформировать PDF</a></li>
+        </ol>
+      </div>
+    </aside>
+
+    <div class="calculation-main">
+      {% for section in sections %}
+        <div class="card" id="section-{{ section.code }}">
+      <h3>{{ section.title }}</h3>
+      <table class="field-table">
+        <tr>
+          <th>Поле</th>
+          <th>Значение</th>
+        </tr>
+        {% for row in section.rows %}
+          <tr>
+            <td>{{ row.field }}</td>
+            <td>{{ row.value }}</td>
+          </tr>
+        {% endfor %}
+      </table>
+
+      {% if section.debt_large_items %}
+        <h4 id="debt-large-items">Клиенты с задолженностью 100 000 и более</h4>
+        <table>
+          <tr>
+            <th>№</th>
+            <th>Контрагент</th>
+            <th>Сумма задолженности</th>
+            <th>Комментарий</th>
+            <th>Действие</th>
+          </tr>
+          {% for item in section.debt_large_items %}
+            <tr>
+              <td>{{ item.number }}</td>
+              <td>{{ item.contractor }}</td>
+              <td>{{ item.overdue }}</td>
+              <td>
+                <form id="debt-comment-{{ item.index }}" method="post" action="/calculations/{{ calculation.id }}/debt-large-items/{{ item.index }}/comment">
+                  <input type="text" name="comment" value="{{ item.comment }}" class="table-input">
+                </form>
+              </td>
+              <td class="actions-cell">
+                <button form="debt-comment-{{ item.index }}" type="submit">Сохранить</button>
+              </td>
+            </tr>
+          {% endfor %}
+        </table>
+      {% endif %}
+
+      {% if section.can_adjust %}
+        <div class="adjustment-box">
+          <h4>Корректировка к разделу «{{ section.title }}»</h4>
+          <form method="post" action="/calculations/{{ calculation.id }}/adjustments">
+            <input type="hidden" name="section_code" value="{{ section.code }}">
+            <input type="hidden" name="adjustment_type" value="correction">
+            <input type="hidden" name="return_to" value="/calculations/{{ calculation.id }}#section-{{ section.code }}">
+            <label>Сумма корректировки<br>
+              <input type="number" step="0.01" name="amount" value="0">
+            </label><br>
+            <label>Комментарий<br>
+              <input type="text" name="comment" style="width: 70%;">
+            </label><br>
+            <button type="submit">Добавить корректировку</button>
+          </form>
+        </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+
+  <div class="card" id="additional-payment-form">
+    <h2>Дополнительная выплата</h2>
+    <form method="post" action="/calculations/{{ calculation.id }}/additional-payments">
+      <input type="hidden" name="return_to" value="/calculations/{{ calculation.id }}#additional-payment-form">
+      <label>Описание<br><input type="text" name="title" required></label><br>
+      <label>Сумма<br><input type="number" step="0.01" name="amount" required></label><br>
+      <label>Комментарий<br><input type="text" name="comment"></label><br>
+      <button type="submit">Добавить выплату</button>
+    </form>
+  </div>
+
+  <div class="card" id="manual-entries">
+    <h2>История ручных записей</h2>
+    <h3>Дополнительные выплаты</h3>
+    <table>
+      <tr><th>Описание</th><th>Сумма</th><th>Комментарий</th><th>Статус</th><th>Действия</th></tr>
+      {% for payment in calculation.additional_payments %}
+        <tr>
+          <td>
+            <form id="payment-update-{{ payment.id }}" method="post" action="/calculations/{{ calculation.id }}/additional-payments/{{ payment.id }}/update">
+              <input type="text" name="title" value="{{ payment.title }}" class="table-input" required>
+            </form>
+          </td>
+          <td>
+            <input form="payment-update-{{ payment.id }}" type="number" step="0.01" name="amount" value="{{ payment.amount }}" class="number-input" required>
+          </td>
+          <td>
+            <input form="payment-update-{{ payment.id }}" type="text" name="comment" value="{{ payment.comment or '' }}" class="table-input">
+          </td>
+          <td>{{ payment.status }}</td>
+          <td class="actions-cell">
+            <button form="payment-update-{{ payment.id }}" type="submit">Сохранить</button>
+            <form method="post" action="/calculations/{{ calculation.id }}/additional-payments/{{ payment.id }}/delete" class="inline-form">
+              <button type="submit" class="danger-button">Удалить</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </table>
+
+    <h3>Корректировки</h3>
+    <table>
+      <tr><th>Раздел</th><th>Тип</th><th>Сумма</th><th>Комментарий</th><th>Статус</th><th>Действия</th></tr>
+      {% for adjustment in calculation.adjustments %}
+        <tr>
+          <td>{{ adjustment.section_code }}</td>
+          <td>{{ adjustment.adjustment_type }}</td>
+          <td>
+            <form id="adjustment-update-{{ adjustment.id }}" method="post" action="/calculations/{{ calculation.id }}/adjustments/{{ adjustment.id }}/update">
+              <input type="number" step="0.01" name="amount" value="{{ adjustment.amount }}" class="number-input">
+            </form>
+          </td>
+          <td>
+            <input form="adjustment-update-{{ adjustment.id }}" type="text" name="comment" value="{{ adjustment.comment or '' }}" class="table-input">
+          </td>
+          <td>{{ adjustment.status }}</td>
+          <td class="actions-cell">
+            <button form="adjustment-update-{{ adjustment.id }}" type="submit">Сохранить</button>
+            <form method="post" action="/calculations/{{ calculation.id }}/adjustments/{{ adjustment.id }}/delete" class="inline-form">
+              <button type="submit" class="danger-button">Удалить</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </table>
+  </div>
+  <div class="card" id="pdf-actions">
+    <h2>PDF</h2>
+    <div class="top-actions">
+      <form method="post" action="/calculations/{{ calculation.id }}/pdf" class="inline-form">
+        <input type="hidden" name="return_to" value="/calculations/{{ calculation.id }}#pdf-actions">
+        <button type="submit" {% if not calculation.snapshot_json %}disabled{% endif %}>Создать расчет в PDF</button>
+      </form>
+      {% if calculation.pdf_path %}
+        <a class="secondary-button" href="/calculations/{{ calculation.id }}/pdf/download">Скачать PDF</a>
+      {% endif %}
+    </div>
+    <div class="top-actions">
+      <a class="secondary-button" href="/periods/{{ calculation.period.year }}/{{ '%02d'|format(calculation.period.month) }}#calculations">Вернуться к списку расчетов</a>
+    </div>
+  </div>
+    </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title or "Компонент-М · Зарплата" }}</title>
+    <style>
+      :root {
+        --km-red: #e4232c;
+        --km-red-dark: #b9151d;
+        --km-graphite: #252525;
+        --km-ink: #1f2328;
+        --km-muted: #74777d;
+        --km-line: #e4e6ea;
+        --km-soft: #f4f5f7;
+        --km-card: #ffffff;
+        --km-success: #17834c;
+        --km-danger: #b9151d;
+        --km-shadow: 0 12px 34px rgba(20, 24, 31, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        margin: 0;
+        color: var(--km-ink);
+        background:
+          linear-gradient(135deg, rgba(228, 35, 44, 0.08), rgba(255, 255, 255, 0) 34%),
+          #f2f3f5;
+      }
+
+      a { color: var(--km-red); text-decoration: none; font-weight: 600; }
+      a:hover { color: var(--km-red-dark); text-decoration: underline; }
+
+      .site-header {
+        background: linear-gradient(90deg, #1f1f1f 0%, #333333 72%, #202020 100%);
+        border-bottom: 4px solid var(--km-red);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      }
+
+      .site-header-inner {
+        max-width: 1320px;
+        margin: 0 auto;
+        min-height: 82px;
+        padding: 18px 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        color: #fff;
+      }
+
+      .brand-logo {
+        width: 212px;
+        max-width: 42vw;
+        height: auto;
+        display: block;
+      }
+
+      .brand-title {
+        border-left: 1px solid rgba(255, 255, 255, 0.24);
+        padding-left: 18px;
+      }
+
+      .brand-title strong {
+        display: block;
+        color: #fff;
+        font-size: 18px;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+
+      .brand-title span {
+        display: block;
+        margin-top: 4px;
+        color: rgba(255, 255, 255, 0.66);
+        font-size: 13px;
+      }
+
+      .top-nav {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .page-shell {
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 34px 28px 54px;
+      }
+
+      h1 {
+        margin: 0 0 18px;
+        font-size: 34px;
+        line-height: 1.15;
+        letter-spacing: -0.02em;
+      }
+
+      h2 {
+        margin: 0 0 14px;
+        font-size: 23px;
+        line-height: 1.25;
+      }
+
+      h3 { margin: 18px 0 10px; font-size: 18px; }
+      h4 { margin: 16px 0 8px; font-size: 15px; }
+
+      table {
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+        margin-top: 14px;
+        background: var(--km-card);
+        border: 1px solid var(--km-line);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+
+      th, td {
+        border: 0;
+        border-bottom: 1px solid var(--km-line);
+        padding: 11px 13px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      tr:last-child td { border-bottom: 0; }
+
+      th {
+        background: #2c2c2c;
+        color: #fff;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+      }
+
+      tr:nth-child(even) td { background: #fafafa; }
+
+      .ok { color: var(--km-success); font-weight: 700; }
+      .missing { color: var(--km-danger); font-weight: 700; }
+      .muted { color: var(--km-muted); }
+      .error { color: var(--km-danger); font-weight: 700; }
+      .success { color: var(--km-success); font-weight: 700; }
+
+      .card {
+        background: var(--km-card);
+        border: 1px solid rgba(31, 35, 40, 0.08);
+        border-radius: 18px;
+        padding: 22px;
+        margin: 18px 0;
+        box-shadow: var(--km-shadow);
+      }
+
+      .compact-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 16px;
+        align-items: stretch;
+      }
+
+      .compact-card {
+        padding: 16px 18px;
+        margin: 14px 0;
+      }
+
+      .compact-card h2 { margin-bottom: 10px; font-size: 20px; }
+      .compact-card h3 { margin: 12px 0 8px; }
+      .compact-text { margin: 7px 0; line-height: 1.35; }
+
+      .compact-table { margin-top: 10px; }
+      .compact-table th, .compact-table td { padding: 8px 10px; }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0 0 10px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: #fff;
+        border: 1px solid var(--km-line);
+        font-weight: 700;
+      }
+
+      .button-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+
+      .status-line { margin: 8px 0; }
+
+      .upload-box {
+        border: 2px dashed rgba(228, 35, 44, 0.55);
+        border-radius: 18px;
+        padding: 24px;
+        background: linear-gradient(135deg, rgba(228, 35, 44, 0.08), #fff 58%);
+      }
+
+      .field-table td:first-child {
+        width: 34%;
+        color: #555b62;
+        font-weight: 700;
+      }
+
+      .final-summary-card {
+        max-width: 980px;
+      }
+
+      .final-summary-table {
+        font-size: 18px;
+      }
+
+      .final-summary-table th,
+      .final-summary-table td {
+        border-right: 1px solid var(--km-line);
+      }
+
+      .final-summary-table th:last-child,
+      .final-summary-table td:last-child {
+        border-right: 0;
+        width: 32%;
+      }
+
+      .final-summary-table tr.total td {
+        background: #ffe3e3;
+        color: #e00000;
+        font-weight: 800;
+      }
+
+      .final-summary-table tr.salary td {
+        background: #dcffdf;
+        color: #087608;
+        font-weight: 800;
+      }
+
+      .adjustment-box {
+        margin-top: 16px;
+        padding: 16px;
+        border: 1px solid rgba(228, 35, 44, 0.22);
+        border-left: 4px solid var(--km-red);
+        border-radius: 14px;
+        background: #fff7f7;
+      }
+
+      input, select, button {
+        padding: 10px 12px;
+        margin: 5px 0;
+        border-radius: 10px;
+        border: 1px solid #cfd3d8;
+        font: inherit;
+      }
+
+      input:focus, select:focus {
+        outline: none;
+        border-color: var(--km-red);
+        box-shadow: 0 0 0 3px rgba(228, 35, 44, 0.16);
+      }
+
+      button {
+        cursor: pointer;
+        border-color: #cfd3d8;
+        background: #fff;
+        color: var(--km-ink);
+        font-weight: 700;
+        transition: 0.15s ease;
+      }
+
+      button:hover {
+        background: #fff7f7;
+        border-color: var(--km-red);
+        color: var(--km-red);
+      }
+      button:disabled { cursor: not-allowed; opacity: 0.55; }
+
+      .inline-form { display: inline; margin: 0; }
+      .inline-form button { margin: 0; }
+      .toolbar-form { margin: 8px 0 12px; }
+      .toolbar-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 8px 0 12px; }
+      .top-actions { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin: 12px 0 18px; }
+      .top-nav a,
+      .nav-form button,
+      .secondary-button,
+      .table-action-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 34px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid #cfd3d8;
+        background: #fff;
+        color: var(--km-ink);
+        font-weight: 700;
+        line-height: 1.15;
+        text-decoration: none;
+      }
+      .top-nav a:hover,
+      .nav-form button:hover,
+      .secondary-button:hover,
+      .table-action-button:hover {
+        border-color: var(--km-red);
+        color: var(--km-red);
+        background: #fff7f7;
+        text-decoration: none;
+      }
+      .table-input { width: 95%; box-sizing: border-box; }
+      .number-input { width: 140px; box-sizing: border-box; }
+      .actions-header, .actions-cell { text-align: center; }
+      .actions-cell {
+        white-space: nowrap;
+      }
+      .action-list {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .api-call {
+        margin: 14px 0 22px;
+        border: 1px solid var(--km-line);
+        border-radius: 14px;
+        overflow: hidden;
+        background: #fff;
+      }
+
+      .api-call-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 12px;
+        background: #f8f8f8;
+        border-bottom: 1px solid var(--km-line);
+      }
+
+      .api-call-header h3 {
+        margin: 0;
+        font-size: 16px;
+      }
+
+      .api-call pre {
+        margin: 0;
+        padding: 14px;
+        overflow-x: auto;
+        background: #242424;
+        color: #fff;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .api-note {
+        padding: 12px 14px;
+        border-left: 4px solid var(--km-red);
+        background: #fff7f7;
+        border-radius: 12px;
+      }
+
+      .link-button {
+        display: inline;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--km-red);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .link-button:hover {
+        color: var(--km-red-dark);
+        background: transparent;
+        text-decoration: underline;
+      }
+      button.table-action-button {
+        cursor: pointer;
+        color: var(--km-ink);
+        background: #fff;
+        border-color: #cfd3d8;
+        font: inherit;
+        font-weight: 700;
+      }
+      button.table-action-button:hover {
+        color: var(--km-red);
+        background: #fff7f7;
+        border-color: var(--km-red);
+      }
+      .calculation-layout {
+        display: grid;
+        grid-template-columns: 250px minmax(0, 1fr);
+        gap: 18px;
+        align-items: start;
+      }
+      .calculation-sidebar {
+        position: sticky;
+        top: 18px;
+        align-self: start;
+      }
+      .toc-card {
+        padding: 14px 16px;
+      }
+      .toc-employee {
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--km-line);
+        color: var(--km-ink);
+        font-size: 14px;
+        font-weight: 800;
+        line-height: 1.25;
+      }
+      .toc-card h2 {
+        margin-bottom: 8px;
+        font-size: 17px;
+      }
+      .toc-list {
+        display: block;
+        margin: 0;
+        padding-left: 18px;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+      .toc-list li {
+        margin: 6px 0;
+      }
+      .toc-list a {
+        font-weight: 600;
+      }
+
+      .danger-button {
+        color: var(--km-ink);
+        background: #fff;
+        border-color: #cfd3d8;
+      }
+
+      .danger-button:hover {
+        color: var(--km-red);
+        background: #fff7f7;
+        border-color: var(--km-red);
+      }
+      .auth-card { max-width: 420px; margin: 56px auto; }
+      .save-toast {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        z-index: 1000;
+        transform: translate(-50%, -50%);
+        max-width: min(520px, calc(100vw - 32px));
+        padding: 18px 24px;
+        border-radius: 18px;
+        background: rgba(31, 35, 40, 0.94);
+        color: #fff;
+        box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+        font-size: 18px;
+        font-weight: 700;
+        text-align: center;
+        animation: toast-fade 3.2s ease forwards;
+      }
+
+      @keyframes toast-fade {
+        0% { opacity: 0; transform: translate(-50%, -46%); }
+        12% { opacity: 1; transform: translate(-50%, -50%); }
+        78% { opacity: 1; transform: translate(-50%, -50%); }
+        100% { opacity: 0; transform: translate(-50%, -54%); pointer-events: none; }
+      }
+
+      .nav-form { display: inline; }
+      .nav-form button {
+        margin: 0;
+      }
+      .current-user {
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(14, 110, 65, 0.22);
+        border-radius: 999px;
+        color: var(--green-dark);
+        font-size: 14px;
+        font-weight: 700;
+        padding: 9px 13px;
+        white-space: nowrap;
+      }
+
+      @media (max-width: 760px) {
+        .site-header-inner { align-items: flex-start; flex-direction: column; }
+        .brand { align-items: flex-start; flex-direction: column; gap: 10px; }
+        .brand-title { border-left: 0; padding-left: 0; }
+        .page-shell { padding: 24px 16px 40px; }
+        h1 { font-size: 28px; }
+        table { display: block; overflow-x: auto; }
+        .compact-grid { grid-template-columns: 1fr; }
+        .calculation-layout { display: block; }
+        .calculation-sidebar { position: static; }
+        .actions-cell { white-space: normal; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-header-inner">
+        <div class="brand">
+          <img class="brand-logo" src="/static/komponent-logo.png" alt="Компонент-М">
+          <div class="brand-title">
+            <strong>Расчёт заработной платы</strong>
+            <span>B2B-направление · управленческие отчёты</span>
+          </div>
+        </div>
+        <nav class="top-nav">
+          {% if current_user %}
+            <a href="/periods">Выбор периода</a>
+            <a href="/api-docs">API</a>
+            {% if current_user.is_admin %}
+              <a href="/admin">Админка</a>
+            {% endif %}
+            <form method="post" action="/logout" class="nav-form">
+              <button type="submit">Выйти</button>
+            </form>
+            <span class="current-user">{{ current_user.full_name or current_user.username }}</span>
+          {% endif %}
+        </nav>
+      </div>
+    </header>
+    {% if request.query_params.get("saved") == "1" %}
+      <div class="save-toast" role="status" aria-live="polite">
+        Запись сохранена и добавлена в конец расчёта
+      </div>
+      <script>
+        window.setTimeout(function () {
+          var toast = document.querySelector(".save-toast");
+          if (toast) {
+            toast.remove();
+          }
+          var url = new URL(window.location.href);
+          url.searchParams.delete("saved");
+          window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+        }, 3300);
+      </script>
+    {% endif %}
+    <main class="page-shell">
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

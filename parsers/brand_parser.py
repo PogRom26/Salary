@@ -1,5 +1,6 @@
 import pandas as pd
-from config import ZIC_BONUS_BASE, OTHER_BONUS_BASE, OTHER_KPI_WEIGHTS
+from directions.b2b.config import ZIC_BONUS_BASE, OTHER_BONUS_BASE, OTHER_KPI_WEIGHTS
+from services.rounding import round_half_up
 
 
 class BrandParser:
@@ -132,9 +133,9 @@ class BrandParser:
                 if pd.isna(percent):
                     percent = 0
 
-                plan = float(plan)
-                fact = float(fact)
-                percent = float(percent)
+                plan = round_half_up(float(plan))
+                fact = round_half_up(float(fact))
+                percent = fact / plan * 100 if plan else 0
 
                 # =========================
                 # KPI ZIC
@@ -142,7 +143,7 @@ class BrandParser:
 
                 if "zic" in kpi_name.lower():
 
-                    bonus = (
+                    bonus = round_half_up(
                         percent
                         / 100
                         * ZIC_BONUS_BASE
@@ -180,7 +181,7 @@ class BrandParser:
                     else:
                         rate = 10
 
-                    lukoil_bonus = kg * rate
+                    lukoil_bonus = round_half_up(kg * rate)
 
                     lukoil = {
                         "kg": kg,
@@ -246,7 +247,7 @@ class BrandParser:
         elif other_ratio < 0.1:
             other_ratio = 0
 
-        other_bonus_total = (
+        other_bonus_total = round_half_up(
                 OTHER_BONUS_BASE
                 * other_ratio
         )
@@ -293,15 +294,18 @@ class BrandParser:
 
             def number(index):
                 try:
-                    return float(row.iloc[index])
+                    return round_half_up(float(row.iloc[index]))
                 except (TypeError, ValueError):
                     return 0.0
 
+            plan = number(5)
+            fact = number(7)
+
             return {
                 "brand": str(name).strip(),
-                "plan": number(5),
-                "fact": number(7),
-                "percent": number(8),
+                "plan": plan,
+                "fact": fact,
+                "percent": fact / plan * 100 if plan else 0.0,
             }
 
         return {"brand": kpi_part, "plan": 0.0, "fact": 0.0, "percent": 0.0}

@@ -1,6 +1,6 @@
 import pandas as pd
 
-from config import OVERDUE_DEBT_PERCENT, OVERDUE_DEBT_THRESHOLD
+from directions.b2b.config import OVERDUE_DEBT_PERCENT, OVERDUE_DEBT_THRESHOLD
 
 
 class DebtParser:

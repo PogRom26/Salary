@@ -1,6 +1,6 @@
-"""Calculation of manager salary reports. Rendering is deliberately separate."""
+"""Calculation of B2B manager salary reports. Rendering is deliberately separate."""
 
-from config import CHIEF_EMPLOYEE
+from directions.b2b.config import CHIEF_EMPLOYEE
 from services.calculation_context import load_context
 from services.report_builder import build_employee_report
 from services.report_io import save_report

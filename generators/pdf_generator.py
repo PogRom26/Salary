@@ -19,15 +19,14 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from services.rounding import round_half_up
+
 # ==================================================
 # Регистрация шрифта
 # ==================================================
 
-FONT_PATH = (
-    Path(__file__).parent.parent
-    / "fonts"
-    / "DejaVuSans.ttf"
-)
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+FONT_PATH = PROJECT_ROOT / "fonts" / "DejaVuSans.ttf"
 
 pdfmetrics.registerFont(
     TTFont(
@@ -133,6 +132,16 @@ def generate_pdf(
         fontName="DejaVuSans",
         fontSize=7.5,
         leading=9,
+        splitLongWords=True,
+        spaceBefore=0,
+        spaceAfter=0,
+    )
+    additional_cell_style = ParagraphStyle(
+        "AdditionalCell",
+        parent=styles["BodyText"],
+        fontName="DejaVuSans",
+        fontSize=9,
+        leading=11,
         splitLongWords=True,
         spaceBefore=0,
         spaceAfter=0,
@@ -513,6 +522,14 @@ def generate_pdf(
 
     story.append(debt_table)
 
+    debt_threshold = f"{float(debt_data['threshold']):,.0f}".replace(",", " ")
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        f"В таблице ниже отдельно отмечены клиенты с просроченной "
+        f"задолженностью {debt_threshold} рублей и более.",
+        justified_style,
+    ))
+
     debt_rows = [[
         _cell("Контрагент", debt_cell_style),
         _cell("Сумма задолженности", debt_cell_style),
@@ -588,12 +605,12 @@ def generate_pdf(
 
             [
                 "Цикл сделки, план",
-                f"{cycle_data['plan']:.1f} дн."
+                f"{cycle_data['plan']:.2f} дн."
             ],
 
             [
                 "Цикл сделки, факт",
-                f"{cycle_data['fact']:.1f} дн."
+                f"{cycle_data['fact']:.2f} дн."
             ],
 
             [
@@ -692,11 +709,16 @@ def generate_pdf(
     # Дополнительные выплаты
     # ==================================================
 
+    additional_total = round_half_up(sum(
+        float(item.get("amount") or 0)
+        for item in additional_payments.get("items", [])
+    ))
+
     story.append(Paragraph("8. Дополнительные выплаты", styles["Heading2"]))
     additional_rows = [["Описание", "Сумма"]]
     for item in additional_payments["items"]:
         additional_rows.append([
-            item["description"],
+            _cell(item["description"], additional_cell_style),
             "" if item["amount"] is None else money(item["amount"]),
         ])
     additional_table = Table(additional_rows, colWidths=[90 * mm, 50 * mm])
@@ -712,17 +734,17 @@ def generate_pdf(
     # Итог
     # ==================================================
 
-    total_bonus = (
+    total_bonus = round_half_up(
             profit_data["bonus"]
             + brand_data["zic_bonus_total"]
             + brand_data["lukoil_bonus"]
             + brand_data["other_bonus_total"]
             + cycle_data["bonus"]
-            + additional_payments["total"]
+            + additional_total
             - debt_data["responsibility"]
     )
 
-    salary_total = (
+    salary_total = round_half_up(
             total_bonus
             + timesheet_data["salary"]
     )
@@ -773,7 +795,7 @@ def generate_pdf(
 
             [
                 "Дополнительные выплаты",
-                money(additional_payments["total"]),
+                money(additional_total),
             ],
 
             [

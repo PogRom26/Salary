@@ -1,3 +1,6 @@
+from services.rounding import round_half_up
+
+
 def build_employee_report(
     employee,
     profit_parser,
@@ -118,7 +121,7 @@ def build_employee_report(
         "total": 0.0,
     }
 
-    total_bonus = (
+    total_bonus = round_half_up(
             income_bonus
             + zic_bonus_total
             + lukoil_bonus

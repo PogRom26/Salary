@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>Период {{ period.month }}.{{ period.year }}</h1>
+  <p class="status-pill">Статус: {{ period.status | status_label }}</p>
+
+  <div class="card compact-card">
+    <h2>Какие отчеты нужно загрузить</h2>
+    <table class="compact-table">
+      <tr>
+        <th>Код</th>
+        <th>Что это за отчет</th>
+        <th>Как должен называться файл</th>
+        <th>Статус</th>
+      </tr>
+      {% for code, name in report_types.items() %}
+        {% set reports = reports_by_type.get(code, []) %}
+        {% set has_errors = reports | selectattr("status", "equalto", "error") | list | length > 0 %}
+        <tr>
+          <td>{{ code }}</td>
+          <td>
+            {{ name }}<br>
+            <span class="muted">{{ report_descriptions[code].description }}</span>
+          </td>
+          <td>{{ report_descriptions[code].filename_hint }}</td>
+          <td>
+            {% if has_errors %}
+              <span class="error">Ошибка проверки</span>
+            {% elif reports %}
+              <span class="success">✓ Загружен</span>
+            {% else %}
+              <span class="missing">Не загружен</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="compact-grid">
+    <div class="card upload-box compact-card">
+      <h2>Загрузка файлов</h2>
+      <p class="muted compact-text">
+        Можно выбрать несколько файлов сразу. Тип отчета определяется по имени.
+        Повторная загрузка заменит файл. Лишние файлы будут проигнорированы.
+      </p>
+      <p class="error compact-text">
+        Важно: цикл сделки считается на последний день выбранного периода.
+      </p>
+      <form method="post" action="/periods/{{ period.year }}/{{ '%02d'|format(period.month) }}/reports" enctype="multipart/form-data">
+        <input type="file" name="files" multiple required><br>
+        <button type="submit">Загрузить выбранные файлы</button>
+      </form>
+    </div>
+
+    <div class="card compact-card">
+      <h2>Проверка и расчет</h2>
+      {% if completeness.complete %}
+        <p class="ok compact-text">Все обязательные отчеты загружены.</p>
+      {% else %}
+        <p class="missing compact-text">Не хватает файлов: {{ completeness.missing | join(", ") }}</p>
+      {% endif %}
+
+      {% if completeness.errors %}
+        <h3>Ошибки проверки</h3>
+        {% for error in completeness.errors %}
+          <p class="error compact-text">{{ error.report_type | report_type_label }} / {{ error.filename }}: {{ error.message }}</p>
+        {% endfor %}
+      {% elif completeness.validated %}
+        <p class="success compact-text">✓ Все отчеты прошли проверку.</p>
+      {% elif completeness.complete %}
+        <p class="muted compact-text">Отчеты загружены, требуется проверка.</p>
+      {% endif %}
+
+      <div class="button-row">
+        <form method="post" action="/periods/{{ period.year }}/{{ '%02d'|format(period.month) }}/validate" class="inline-form">
+          <button type="submit" {% if not completeness.complete %}disabled{% endif %}>Проверить отчеты</button>
+        </form>
+
+        <form method="post" action="/periods/{{ period.year }}/{{ '%02d'|format(period.month) }}/calculate" class="inline-form">
+          <button type="submit" {% if not completeness.validated %}disabled{% endif %}>Рассчитать</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <h2>Загруженные файлы</h2>
+  <table class="compact-table">
+    <tr>
+      <th>Тип</th>
+      <th>Файл</th>
+      <th>Статус</th>
+      <th>Ошибка</th>
+    </tr>
+    {% for report in period.reports %}
+      <tr>
+        <td>{{ report.report_type | report_type_label }}</td>
+        <td>{{ report.original_filename }}</td>
+        <td>{{ report.status | status_label }}</td>
+        <td>{{ report.error_message or "" }}</td>
+      </tr>
+    {% endfor %}
+  </table>
+
+  <h2 id="calculations">Расчеты</h2>
+  <div class="toolbar-row">
+    <form method="post" action="/periods/{{ period.year }}/{{ '%02d'|format(period.month) }}/pdf" class="inline-form">
+      <button type="submit" {% if not completeness.validated %}disabled{% endif %}>Создать все расчеты</button>
+    </form>
+    <form method="post" action="/periods/{{ period.year }}/{{ '%02d'|format(period.month) }}/calculations/delete" class="inline-form">
+      <button type="submit" class="danger-button" {% if not period.calculations %}disabled{% endif %}>Удалить все расчеты</button>
+    </form>
+  </div>
+  <table>
+    <tr>
+      <th>Сотрудник</th>
+      <th>Статус</th>
+      <th>JSON</th>
+      <th class="actions-header">Действия</th>
+    </tr>
+    {% for calculation in period.calculations %}
+      <tr>
+        <td>{{ calculation.employee.full_name }}</td>
+        <td>{{ calculation.status | status_label }}</td>
+        <td>{{ "да" if calculation.snapshot_json else "нет" }}</td>
+        <td class="actions-cell">
+          <div class="action-list">
+            <a class="table-action-button" href="/calculations/{{ calculation.id }}">Открыть расчет</a>
+            {% if calculation.snapshot_json %}
+              <form method="post" action="/calculations/{{ calculation.id }}/pdf" class="inline-form">
+                <input type="hidden" name="return_to" value="/periods/{{ period.year }}/{{ '%02d'|format(period.month) }}#calculations">
+                <button type="submit" class="table-action-button">Создать расчет в PDF</button>
+              </form>
+            {% else %}
+              <span class="muted">Нет JSON</span>
+            {% endif %}
+            {% if calculation.pdf_path %}
+              <a class="table-action-button" href="/calculations/{{ calculation.id }}/pdf/download">Скачать PDF</a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+    {% endfor %}
+  </table>
+{% endblock %}

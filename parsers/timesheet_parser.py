@@ -1,6 +1,6 @@
 import pandas as pd
 
-from config import HOUR_RATE
+from directions.b2b.config import HOUR_RATE
 
 
 class TimesheetParser:

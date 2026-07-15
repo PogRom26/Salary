@@ -9,9 +9,11 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from services.report_io import MONTHS
+from services.rounding import round_half_up
 
 
-FONT_PATH = Path(__file__).parent.parent / "fonts" / "DejaVuSans.ttf"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+FONT_PATH = PROJECT_ROOT / "fonts" / "DejaVuSans.ttf"
 if "DejaVuSans" not in pdfmetrics.getRegisteredFontNames():
     pdfmetrics.registerFont(TTFont("DejaVuSans", str(FONT_PATH)))
 
@@ -68,6 +70,16 @@ def generate_chief_pdf(pdf_path, report, year, month):
         spaceBefore=0,
         spaceAfter=0,
     )
+    additional_cell_style = ParagraphStyle(
+        "AdditionalCell",
+        parent=styles["BodyText"],
+        fontName="DejaVuSans",
+        fontSize=8,
+        leading=10,
+        splitLongWords=True,
+        spaceBefore=0,
+        spaceAfter=0,
+    )
     story = [
         Paragraph(f"Расчёт руководителя B2B-направления за {MONTHS[month]} {year} года", styles["Title"]),
         Paragraph(report["employee"], styles["Heading1"]), Spacer(1, 8),
@@ -119,8 +131,8 @@ def generate_chief_pdf(pdf_path, report, year, month):
         ["Показатель", "Значение"],
         ["Сделок в расчете плана", str(cycle["plan_count"])],
         ["Сделок в расчете факта", str(cycle["fact_count"])],
-        ["Цикл сделки, план", f'{cycle["plan"]:.1f} дн.'],
-        ["Цикл сделки, факт", f'{cycle["fact"]:.1f} дн.'],
+        ["Цикл сделки, план", f'{cycle["plan"]:.2f} дн.'],
+        ["Цикл сделки, факт", f'{cycle["fact"]:.2f} дн.'],
         ["Соотношение", f'{cycle["ratio"] * 100:.2f}%'],
         ["Базовый размер бонуса", money(cycle["bonus_base"])],
         ["Размер бонуса", money(cycle["bonus"])],
@@ -153,6 +165,12 @@ def generate_chief_pdf(pdf_path, report, year, month):
               ["Общая ПДЗ", money(debt["total"])],
               ["Ответственность за ПДЗ (1% от суммы)", "-" + money(debt["responsibility"])]],
               [95 * mm, 55 * mm], "#FCE4D6"), Spacer(1, 4)]
+    debt_threshold = f"{float(debt['threshold']):,.0f}".replace(",", " ")
+    story += [Paragraph(
+        f"В таблице ниже отдельно отмечены клиенты с просроченной "
+        f"задолженностью {debt_threshold} рублей и более.",
+        styles["BodyText"],
+    ), Spacer(1, 4)]
     debt_rows = [[
         _cell("Контрагент", debt_cell_style),
         _cell("Сумма задолженности", debt_cell_style),
@@ -193,22 +211,32 @@ def generate_chief_pdf(pdf_path, report, year, month):
         ["Отработано часов", "Оклад"], [f'{timesheet["hours"]:.2f}', money(timesheet["salary"])],
     ], header_color="#D9E1F2"), Spacer(1, 6)]
     additional_payments = report["additional_payments"]
+    additional_total = round_half_up(sum(
+        float(item.get("amount") or 0)
+        for item in additional_payments.get("items", [])
+    ))
     additional_rows = [["Описание", "Сумма"]]
     additional_rows += [[
-        item["description"],
+        _cell(item["description"], additional_cell_style),
         "" if item["amount"] is None else money(item["amount"]),
     ] for item in additional_payments["items"]]
     story += [Paragraph("9. Дополнительные выплаты", styles["Heading2"]),
               _table(additional_rows, [105 * mm, 45 * mm], "#E4DFEC"), Spacer(1, 6)]
+    total_bonus = round_half_up(
+        kpi["bonus"] + cycle["bonus"] + zic["bonus"] + other["bonus"]
+        + lukoil["bonus"] + key_clients["bonus"] + additional_total
+        - debt["responsibility"]
+    )
+    salary_total = round_half_up(total_bonus + timesheet["salary"])
     total_table = _table([
         ["Показатель", "Сумма"], ["Бонус за прибыль", money(kpi["bonus"])],
         ["Бонус за цикл сделки", money(cycle["bonus"])], ["Бонус ZIC", money(zic["bonus"])],
         ["Бонус за спец продукты", money(other["bonus"])], ["Лукойл", money(lukoil["bonus"])],
         ["Чистая прибыль по ключевым клиентам", money(key_clients["bonus"])],
-        ["Дополнительные выплаты", money(additional_payments["total"])],
+        ["Дополнительные выплаты", money(additional_total)],
         ["Ответственность за ПДЗ", "-" + money(debt["responsibility"])],
-        ["ИТОГО, премия", money(report["total_bonus"])],
-        ["Оклад", money(timesheet["salary"])], ["Размер заработной платы", money(report["salary_total"])],
+        ["ИТОГО, премия", money(total_bonus)],
+        ["Оклад", money(timesheet["salary"])], ["Размер заработной платы", money(salary_total)],
     ], [100 * mm, 50 * mm], "#A9D18E")
     total_table.setStyle(TableStyle([
         ("BACKGROUND", (0, -3), (-1, -3), colors.Color(1, 0.9, 0.9)),

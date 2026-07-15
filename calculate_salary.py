@@ -1,19 +1,6 @@
-"""Build one JSON calculation file per employee for the latest period."""
+"""Compatibility entry point for building B2B salary JSON files."""
 
-from chief_salary import calculate_chief
-from manager_salary import calculate_managers
-from services.calculation_context import load_context
-from services.report_io import save_report
-
-
-def main():
-    context = load_context()
-    managers = calculate_managers(context)
-    reports = [*managers, calculate_chief(context, managers)]
-    for report in reports:
-        path = save_report(report, context["year"], context["month"])
-        print(f"Создан: {path}")
-    print(f"JSON-файлов создано: {len(reports)}")
+from directions.b2b.calculate_salary import main
 
 
 if __name__ == "__main__":

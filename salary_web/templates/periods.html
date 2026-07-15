@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>Расчетные периоды</h1>
+
+  <style>
+    .period-create-card {
+      max-width: 760px;
+    }
+
+    .period-create-form {
+      max-width: 420px;
+    }
+
+    .period-create-field {
+      display: block;
+      margin-bottom: 12px;
+      font-weight: 700;
+    }
+
+    .period-create-field input,
+    .period-create-field select {
+      display: block;
+      width: 100%;
+      min-height: 46px;
+      margin-top: 6px;
+      font-weight: 400;
+    }
+
+    .period-create-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .period-create-action {
+      display: flex;
+      justify-content: center;
+      margin-top: 18px;
+    }
+
+    .period-create-action button {
+      min-width: 190px;
+      padding: 14px 24px;
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    @media (max-width: 620px) {
+      .period-create-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+      }
+    }
+  </style>
+
+  <div class="card period-create-card">
+    <h2>Создать период</h2>
+    <form method="post" action="/periods" class="period-create-form">
+      <label class="period-create-field">Направление
+        <select name="department_id" required>
+          {% for department in departments %}
+            <option value="{{ department.id }}" {% if department.id == default_department_id %}selected{% endif %}>
+              {{ department.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <div class="period-create-row">
+        <label class="period-create-field">Год
+          <input type="number" name="year" value="2026" required>
+        </label>
+
+        <label class="period-create-field">Месяц
+        <select name="month" required>
+          {% for number, name in months.items() %}
+            <option value="{{ number }}">{{ name }}</option>
+          {% endfor %}
+        </select>
+        </label>
+      </div>
+
+      <div class="period-create-action">
+        <button type="submit">Создать</button>
+      </div>
+    </form>
+  </div>
+
+  <table>
+    <tr>
+      <th>Период</th>
+      <th>Отдел</th>
+      <th>Статус</th>
+      <th>Действия</th>
+    </tr>
+    {% for period in periods %}
+      <tr>
+        <td>{{ months[period.month] }} {{ period.year }}</td>
+        <td>{{ period.department.name if period.department else "" }}</td>
+        <td>{{ period.status | status_label }}</td>
+        <td>
+          <a href="/periods/{{ period.year }}/{{ '%02d'|format(period.month) }}">Открыть</a>
+          {% if current_user and current_user.is_admin %}
+            <form method="post" action="/periods/{{ period.id }}/delete" class="inline-form" onsubmit="return confirm('Удалить период {{ months[period.month] }} {{ period.year }}{% if period.department %} / {{ period.department.name }}{% endif %}? Будут удалены отчёты, расчёты и PDF.');">
+              <button type="submit">Удалить</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+  </table>
+{% endblock %}

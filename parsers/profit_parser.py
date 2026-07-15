@@ -1,6 +1,7 @@
 import pandas as pd
 
-from config import PROFIT_BONUS_PERCENT
+from directions.b2b.config import PROFIT_BONUS_PERCENT
+from services.rounding import round_half_up
 
 
 class ProfitParser:
@@ -154,10 +155,9 @@ class ProfitParser:
             except Exception:
                 profitability = 0
 
-            bonus = (
-                income
-                * PROFIT_BONUS_PERCENT
-            )
+            sales = round_half_up(sales)
+            income = round_half_up(income)
+            bonus = round_half_up(income * PROFIT_BONUS_PERCENT)
 
             return {
                 "sales": sales,
@@ -182,7 +182,7 @@ class ProfitParser:
 
             def number(column):
                 try:
-                    return float(row.iloc[column])
+                    return round_half_up(float(row.iloc[column]))
                 except (TypeError, ValueError):
                     return 0.0
 

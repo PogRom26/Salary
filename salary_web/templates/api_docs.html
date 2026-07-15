@@ -1,0 +1,646 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>API</h1>
+  <p>
+    API позволяет внешней системе загрузить отчёты за месяц, проверить комплект,
+    создать расчёты и скачать готовые PDF без ручной работы в веб-интерфейсе.
+  </p>
+  <p class="api-note">
+    Основной формат адресов для внешних систем:
+    <code>/api/departments/b2b/periods/2026/6/...</code>.
+    Здесь <code>b2b</code> — код направления, <code>2026</code> — год расчёта,
+    <code>6</code> — номер месяца. Например,
+    <code>/api/departments/b2b/periods/2026/6</code> означает расчётный период
+    «июнь 2026 года» по направлению B2B.
+  </p>
+
+  <div class="card">
+    <h2>Перед началом</h2>
+    <p>
+      Все примеры ниже используют текущий адрес сервера: <code>{{ api_base_url }}</code>.
+      Если сервис будет открыт не локально, а на другом домене, примеры автоматически покажут новый адрес.
+    </p>
+    <p>
+      Внешние системы должны передавать API-ключ в заголовке <code>X-API-Key</code>.
+      Ключ создаётся в админке и привязывается к разрешённым направлениям.
+    </p>
+    <pre><code>X-API-Key: sk_salary_...</code></pre>
+    <p>Если API-ключ не передан и веб-сессии нет, сервер вернёт:</p>
+    <pre><code>{
+  "detail": "Требуется авторизация"
+}</code></pre>
+    <p>Если API-ключ передан, но он неверный, выключен или не найден, сервер вернёт:</p>
+    <pre><code>{
+  "detail": "Требуется API-ключ"
+}</code></pre>
+    <p>Если ключ есть, но у него нет доступа к направлению, сервер вернёт:</p>
+    <pre><code>{
+  "detail": "Нет доступа к подразделению"
+}</code></pre>
+    <p class="muted">
+      Публичные методы без входа: <code>GET /api/health</code>,
+      <code>GET /api/commands</code>, <code>GET /openapi.json</code>.
+    </p>
+    <p>
+      Для внешних интеграций используй адреса
+      <code>/api/departments/{department_code}/...</code> и заголовок <code>X-API-Key</code>.
+      Старые адреса <code>/api/periods/...</code> оставлены для веб-сессии и совместимости.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Коротко: как получить PDF</h2>
+    <p class="muted">
+      Во всех примерах ниже используется направление <strong>B2B</strong> и период
+      <strong>июнь 2026 года</strong>: <code>b2b</code> — код направления,
+      <code>2026</code> — год, <code>6</code> — июнь.
+      Для другого месяца нужно заменить эти две части адреса.
+    </p>
+    <ol>
+      <li>Проверить, что сервер доступен: <code>GET /api/health</code>.</li>
+      <li>Создать период: <code>POST /api/departments/b2b/periods/2026/6</code>.</li>
+      <li>Загрузить все отчёты: <code>POST /api/departments/b2b/periods/2026/6/reports/{report_type}</code>.</li>
+      <li>Проверить комплект отчётов: <code>POST /api/departments/b2b/periods/2026/6/validate</code>.</li>
+      <li>Создать расчёты и PDF: <code>POST /api/departments/b2b/periods/2026/6/pdf</code>.</li>
+      <li>В ответе взять <code>api_download_url</code>.</li>
+      <li>Скачать файл: <code>GET /api/departments/b2b/periods/2026/6/calculations/{calculation_id}/pdf/download</code>.</li>
+    </ol>
+    <p class="muted">
+      Если отчёт за период загружен повторно, старые расчёты и PDF этого периода
+      удаляются. Это защита от ситуации, когда исходники уже новые, а расчёт ещё старый.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Что означают основные слова</h2>
+    <table class="compact-table">
+      <tr>
+        <th>Термин</th>
+        <th>Значение</th>
+      </tr>
+      <tr>
+        <td><code>department_code</code></td>
+        <td>Код направления из админки. Например, <code>b2b</code>.</td>
+      </tr>
+      <tr>
+        <td><code>period</code></td>
+        <td>Расчётный период: год + месяц + направление.</td>
+      </tr>
+      <tr>
+        <td><code>year</code></td>
+        <td>Год расчёта. Например, <code>2026</code>.</td>
+      </tr>
+      <tr>
+        <td><code>month</code></td>
+        <td>Номер месяца от <code>1</code> до <code>12</code>. Например, <code>6</code> — июнь.</td>
+      </tr>
+      <tr>
+        <td><code>report_type</code></td>
+        <td>Тип исходного отчёта. Список типов указан ниже.</td>
+      </tr>
+      <tr>
+        <td><code>calculation</code></td>
+        <td>Расчёт одного сотрудника за конкретный период.</td>
+      </tr>
+      <tr>
+        <td><code>calculation_id</code></td>
+        <td>Внутренний ID расчёта в базе. Его нужно брать из списка расчётов периода.</td>
+      </tr>
+      <tr>
+        <td><code>snapshot</code></td>
+        <td>Сохранённые данные расчёта, на основании которых формируется PDF.</td>
+      </tr>
+      <tr>
+        <td><code>api_download_url</code></td>
+        <td>API-ссылка для скачивания PDF.</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Типы отчётов</h2>
+    <table class="compact-table">
+      <tr>
+        <th>Код</th>
+        <th>Описание</th>
+      </tr>
+      {% for code, name in report_types.items() %}
+        <tr>
+          <td><code>{{ code }}</code></td>
+          <td>{{ name }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Важно: что такое <code>calculation_id</code></h2>
+    <p>
+      <code>calculation_id</code> — это внутренний ID конкретного расчёта в базе.
+      Это <strong>не</strong> номер сотрудника в месяце и <strong>не</strong> порядковый номер строки в таблице.
+    </p>
+    <p>
+      Например, адрес <code>/api/departments/b2b/periods/2026/6/calculations/2</code> означает:
+      «получить расчёт с ID <code>2</code>, но только если этот расчёт относится к направлению
+      <code>b2b</code> и июню 2026 года».
+    </p>
+    <p>
+      Если расчёт <code>2</code> относится к другому месяцу или другому году, сервер вернёт ошибку <code>404</code>.
+      Это сделано специально, чтобы случайно не получить расчёт не за тот период.
+    </p>
+    <ol>
+      <li>Сначала получи список расчётов периода: <code>GET /api/departments/b2b/periods/2026/6/calculations</code>.</li>
+      <li>В ответе найди нужного сотрудника и его <code>id</code>.</li>
+      <li>Этот <code>id</code> используй в адресах <code>/calculations/{calculation_id}</code> и <code>/pdf/download</code>.</li>
+    </ol>
+    <p class="muted">
+      Коротко: не надо угадывать <code>calculations/1</code>, <code>calculations/2</code> и так далее.
+      Сначала список, потом конкретный расчёт. Иначе это не API, а рулетка с зарплатами.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Методы</h2>
+    <p class="muted">
+      Основные методы для внешних систем — это адреса с
+      <code>/api/departments/{department_code}/...</code>. Они требуют заголовок
+      <code>X-API-Key</code> и проверяют доступ ключа к конкретному направлению.
+    </p>
+    <table class="compact-table api-table">
+      <tr>
+        <th>Метод</th>
+        <th>Адрес</th>
+        <th>Что делает</th>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/api/health</code></td>
+        <td>Проверяет связь с сервером. Если сервер работает, вернёт <code>{"status":"ok"}</code>.</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/api/commands</code></td>
+        <td>Возвращает список доступных API-команд.</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/openapi.json</code></td>
+        <td>Возвращает полную техническую схему API в формате OpenAPI.</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/departments/{department_code}/periods/{year}/{month}</code></td>
+        <td>Создаёт период по конкретному направлению. Требует <code>X-API-Key</code>.</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/api/departments/{department_code}/periods/{year}/{month}</code></td>
+        <td>Возвращает период конкретного направления. Требует доступ ключа к направлению.</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/departments/{department_code}/periods/{year}/{month}/reports/{report_type}</code></td>
+        <td>Загружает отчёт в конкретное направление и период.</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/departments/{department_code}/periods/{year}/{month}/validate</code></td>
+        <td>Проверяет комплект отчётов конкретного направления и периода.</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/departments/{department_code}/periods/{year}/{month}/calculate</code></td>
+        <td>Создаёт JSON-расчёты без PDF.</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/departments/{department_code}/periods/{year}/{month}/pdf</code></td>
+        <td>Создаёт расчёты и PDF по конкретному направлению.</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/api/departments/{department_code}/periods/{year}/{month}/calculations</code></td>
+        <td>Возвращает список расчётов конкретного направления и периода.</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/api/departments/{department_code}/periods/{year}/{month}/calculations/{calculation_id}</code></td>
+        <td>Возвращает конкретный расчёт внутри указанного направления и периода.</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/api/departments/{department_code}/periods/{year}/{month}/calculations/{calculation_id}/pdf/download</code></td>
+        <td>Скачивает PDF конкретного расчёта.</td>
+      </tr>
+    </table>
+
+    <h3>Старые адреса для веб-сессии и совместимости</h3>
+    <p class="muted">
+      Эти методы оставлены, чтобы не ломать старый веб/API-сценарий. Для 1С, CRM и других
+      внешних систем их лучше не использовать: в адресе нет <code>department_code</code>,
+      а авторизация идёт через веб-сессию.
+    </p>
+    <table class="compact-table api-table">
+      <tr>
+        <th>Метод</th>
+        <th>Адрес</th>
+        <th>Что делает</th>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/periods/{year}/{month}</code></td>
+        <td>Создаёт период в старом формате без явного направления.</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/api/periods/{year}/{month}</code></td>
+        <td>Возвращает период, загруженные отчёты, расчёты и текущий статус.</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/api/periods/{year}/{month}/validation</code></td>
+        <td>Показывает, какие отчёты загружены, чего не хватает и где есть ошибки.</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/periods/{year}/{month}/validate</code></td>
+        <td>Запускает проверку загруженных отчётов.</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/periods/{year}/{month}/reports/{report_type}</code></td>
+        <td>Загружает или заменяет один исходный отчёт. При замене старые расчёты периода удаляются.</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/periods/{year}/{month}/calculate</code></td>
+        <td>Создаёт JSON-расчёты по загруженным отчётам, но не создаёт PDF.</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/periods/{year}/{month}/pdf</code></td>
+        <td>Создаёт расчёты, формирует PDF и возвращает ссылки для скачивания.</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/api/periods/{year}/{month}/calculations</code></td>
+        <td>Возвращает список расчётов за период.</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/api/periods/{year}/{month}/calculations/{calculation_id}</code></td>
+        <td>Возвращает данные конкретного расчёта за указанный период.</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/periods/{year}/{month}/calculations/{calculation_id}/pdf</code></td>
+        <td>Формирует PDF по одному расчёту за указанный период.</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/api/periods/{year}/{month}/calculations/{calculation_id}/pdf/download</code></td>
+        <td>Скачивает готовый PDF-файл за указанный период.</td>
+      </tr>
+    </table>
+    <p class="muted">
+      Старые ID-адреса также работают через веб-сессию: <code>/api/periods/{period_id}</code>,
+      <code>/api/periods/{period_id}/calculate</code>,
+      <code>/api/periods/{period_id}/pdf</code>,
+      <code>/api/calculations/{calculation_id}</code>.
+      Для внешней интеграции используй адреса с <code>department_code</code>.
+    </p>
+    <p class="muted">
+      <code>calculation_id</code> — это ID конкретного расчёта сотрудника.
+      Для внешнего API его нужно брать из ответа
+      <code>GET /api/departments/{department_code}/periods/{year}/{month}/calculations</code>.
+    </p>
+    <p class="muted">
+      Пример: <code>/api/departments/b2b/periods/2026/6/calculations/1</code> означает:
+      взять расчёт <code>1</code> именно за июнь 2026 года по направлению B2B.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Статусы и типовые ошибки</h2>
+    <table class="compact-table">
+      <tr>
+        <th>Код</th>
+        <th>Когда бывает</th>
+        <th>Что делать</th>
+      </tr>
+      <tr>
+        <td><code>200</code></td>
+        <td>Запрос выполнен успешно.</td>
+        <td>Использовать данные из ответа.</td>
+      </tr>
+      <tr>
+        <td><code>303</code></td>
+        <td>В веб-формах после сохранения. Для API обычно не нужен.</td>
+        <td>Для API использовать адреса, начинающиеся с <code>/api/</code>.</td>
+      </tr>
+      <tr>
+        <td><code>400</code></td>
+        <td>Неверные данные, нечитаемый файл, неполный комплект отчётов или ошибка расчёта.</td>
+        <td>Проверить текст поля <code>detail</code> в ответе.</td>
+      </tr>
+      <tr>
+        <td><code>401</code></td>
+        <td>Пользователь не вошёл в систему.</td>
+        <td>Войти в веб-интерфейс или добавить авторизацию для внешней интеграции.</td>
+      </tr>
+      <tr>
+        <td><code>403</code></td>
+        <td>У пользователя нет прав на направление или период.</td>
+        <td>Проверить права в админке.</td>
+      </tr>
+      <tr>
+        <td><code>404</code></td>
+        <td>Период, расчёт или PDF не найден.</td>
+        <td>Проверить год, месяц и <code>calculation_id</code>.</td>
+      </tr>
+    </table>
+    <p class="muted">
+      Пример ошибки:
+    </p>
+    <pre><code>{
+  "detail": "Расчет не найден в указанном периоде"
+}</code></pre>
+  </div>
+
+  <div class="card">
+    <h2>Примеры</h2>
+    <p class="muted">
+      В примерах <code>2026/6</code> — это июнь 2026 года:
+      <code>2026</code> — год, <code>6</code> — месяц.
+      Нажми «Копировать», чтобы забрать команду целиком.
+    </p>
+
+    <div class="api-call">
+      <div class="api-call-header">
+        <h3>1. Проверить связь с сервером</h3>
+        <button type="button" class="copy-button" data-copy-target="copy-health">Копировать</button>
+      </div>
+      <pre><code id="copy-health">curl -X GET {{ api_base_url }}/api/health</code></pre>
+      <p class="muted">Если сервер доступен, ответ будет: <code>{"status":"ok"}</code>.</p>
+    </div>
+
+    <div class="api-call">
+      <div class="api-call-header">
+        <h3>2. Получить список доступных API-команд</h3>
+        <button type="button" class="copy-button" data-copy-target="copy-commands">Копировать</button>
+      </div>
+      <pre><code id="copy-commands">curl -X GET {{ api_base_url }}/api/commands</code></pre>
+      <p class="muted">Ответ содержит список API-адресов, методов и технических имён обработчиков.</p>
+      <pre><code>{
+  "commands": [
+    {
+      "path": "/api/departments/{department_code}/periods/{year}/{month}/pdf",
+      "methods": ["POST"],
+      "name": "generate_department_period_pdfs_api"
+    }
+  ]
+}</code></pre>
+    </div>
+
+    <div class="api-call">
+      <div class="api-call-header">
+        <h3>3. Получить полную техническую схему API</h3>
+        <button type="button" class="copy-button" data-copy-target="copy-openapi">Копировать</button>
+      </div>
+      <pre><code id="copy-openapi">curl -X GET {{ api_base_url }}/openapi.json</code></pre>
+      <p class="muted">
+        Это стандартная OpenAPI-схема FastAPI. Она удобна для разработчиков и интеграций,
+        которым нужен машинно-читаемый список методов.
+      </p>
+    </div>
+
+    <div class="api-call">
+      <div class="api-call-header">
+        <h3>4. Создать период</h3>
+        <button type="button" class="copy-button" data-copy-target="copy-create-period">Копировать</button>
+      </div>
+      <pre><code id="copy-create-period">curl -X POST {{ api_base_url }}/api/departments/b2b/periods/2026/6 \
+  -H "X-API-Key: sk_salary_..."</code></pre>
+      <p class="muted">
+        Эта команда создаёт период за июнь 2026 года:
+        <code>2026</code> — год, <code>6</code> — июнь.
+      </p>
+      <p class="muted">Пример ответа:</p>
+      <pre><code>{
+  "id": 1,
+  "year": 2026,
+  "month": 6,
+  "status": "draft",
+  "reports": [],
+  "calculations": [],
+  "validation": {
+    "complete": false
+  }
+}</code></pre>
+    </div>
+
+    <div class="api-call">
+      <div class="api-call-header">
+        <h3>5. Загрузить отчёт</h3>
+        <button type="button" class="copy-button" data-copy-target="copy-upload-report">Копировать</button>
+      </div>
+      <pre><code id="copy-upload-report">curl -X POST {{ api_base_url }}/api/departments/b2b/periods/2026/6/reports/profit \
+  -H "X-API-Key: sk_salary_..." \
+  -F file=@profit.xlsx</code></pre>
+      <p class="muted">
+        Вместо <code>profit</code> нужно подставить код отчёта из таблицы «Типы отчётов».
+        Если загрузить отчёт повторно, он заменит старый, а расчёты этого периода будут удалены.
+      </p>
+      <p class="muted">Пример ответа:</p>
+      <pre><code>{
+  "id": 1,
+  "period_id": 1,
+  "report_type": "profit",
+  "filename": "profit.xlsx",
+  "file_hash": "...",
+  "period_status": "missing_reports"
+}</code></pre>
+    </div>
+
+    <div class="api-call">
+      <div class="api-call-header">
+        <h3>6. Проверить отчёты</h3>
+        <button type="button" class="copy-button" data-copy-target="copy-validate">Копировать</button>
+      </div>
+      <pre><code id="copy-validate">curl -X POST {{ api_base_url }}/api/departments/b2b/periods/2026/6/validate \
+  -H "X-API-Key: sk_salary_..."</code></pre>
+      <p class="muted">
+        Проверка нужна, чтобы понять, все ли отчёты загружены и читаются ли они.
+        Если отчёта не хватает или файл не читается, это будет видно в ответе.
+      </p>
+      <pre><code>{
+  "complete": true,
+  "validated": true,
+  "missing": [],
+  "errors": []
+}</code></pre>
+    </div>
+
+    <div class="api-call">
+      <div class="api-call-header">
+        <h3>7. Создать только JSON-расчёты без PDF</h3>
+        <button type="button" class="copy-button" data-copy-target="copy-calculate">Копировать</button>
+      </div>
+      <pre><code id="copy-calculate">curl -X POST {{ api_base_url }}/api/departments/b2b/periods/2026/6/calculate \
+  -H "X-API-Key: sk_salary_..."</code></pre>
+      <p class="muted">
+        Этот метод нужен, если сначала требуется получить расчёты в базе, проверить их,
+        а PDF сформировать позже.
+      </p>
+      <pre><code>{
+  "period_id": 1,
+  "status": "calculation_created",
+  "calculations_created": 5
+}</code></pre>
+    </div>
+
+    <div class="api-call">
+      <div class="api-call-header">
+        <h3>8. Создать расчёты и получить ссылки на PDF</h3>
+        <button type="button" class="copy-button" data-copy-target="copy-period-pdf">Копировать</button>
+      </div>
+      <pre><code id="copy-period-pdf">curl -X POST {{ api_base_url }}/api/departments/b2b/periods/2026/6/pdf \
+  -H "X-API-Key: sk_salary_..."</code></pre>
+      <p class="muted">
+        Этот метод сразу создаёт расчёты и PDF. Если расчёты уже были, они будут пересозданы
+        на основании текущих загруженных отчётов.
+      </p>
+      <p class="muted">Ответ будет в едином формате:</p>
+      <pre><code>{
+  "period_id": 1,
+  "year": 2026,
+  "month": 6,
+  "pdfs_created": 1,
+  "pdfs": [
+    {
+      "calculation_id": 1,
+      "employee": "ФИО",
+      "pdf_path": "...",
+      "api_download_url": "/api/departments/b2b/periods/2026/6/calculations/1/pdf/download",
+      "web_download_url": "/calculations/1/pdf/download"
+    }
+  ]
+}</code></pre>
+    </div>
+
+    <div class="api-call">
+      <div class="api-call-header">
+        <h3>9. Получить список расчётов периода</h3>
+        <button type="button" class="copy-button" data-copy-target="copy-period-calculations">Копировать</button>
+      </div>
+      <pre><code id="copy-period-calculations">curl -X GET {{ api_base_url }}/api/departments/b2b/periods/2026/6/calculations \
+  -H "X-API-Key: sk_salary_..."</code></pre>
+      <p class="muted">
+        В ответе будет список расчётов за июнь 2026 года. Из него нужно взять
+        <code>id</code> нужного сотрудника. Именно это значение дальше подставляется вместо
+        <code>{calculation_id}</code>.
+      </p>
+      <pre><code>{
+  "period_id": 1,
+  "year": 2026,
+  "month": 6,
+  "calculations": [
+    {
+      "id": 1,
+      "employee": "ФИО",
+      "status": "calculation_created",
+      "has_snapshot": true,
+      "has_pdf": true
+    }
+  ]
+}</code></pre>
+    </div>
+
+    <div class="api-call">
+      <div class="api-call-header">
+        <h3>10. Получить данные конкретного расчёта</h3>
+        <button type="button" class="copy-button" data-copy-target="copy-calculation">Копировать</button>
+      </div>
+      <pre><code id="copy-calculation">curl -X GET {{ api_base_url }}/api/departments/b2b/periods/2026/6/calculations/1 \
+  -H "X-API-Key: sk_salary_..."</code></pre>
+      <p class="muted">
+        Здесь <code>1</code> — это <code>id</code> из списка расчётов периода.
+        Если поставить <code>2</code>, сервер будет искать расчёт с ID <code>2</code>
+        именно за июнь 2026 года.
+      </p>
+      <p class="muted">Пример укороченного ответа:</p>
+      <pre><code>{
+  "id": 1,
+  "period_id": 1,
+  "year": 2026,
+  "month": 6,
+  "employee": "ФИО",
+  "status": "calculation_created",
+  "total_bonus": 119925.05,
+  "salary_total": 161216.57,
+  "pdf_path": "...",
+  "api_download_url": "/api/departments/b2b/periods/2026/6/calculations/1/pdf/download"
+}</code></pre>
+    </div>
+
+    <div class="api-call">
+      <div class="api-call-header">
+        <h3>11. Создать PDF по одному расчёту</h3>
+        <button type="button" class="copy-button" data-copy-target="copy-one-pdf">Копировать</button>
+      </div>
+      <pre><code id="copy-one-pdf">curl -X POST {{ api_base_url }}/api/departments/b2b/periods/2026/6/calculations/1/pdf \
+  -H "X-API-Key: sk_salary_..."</code></pre>
+      <p class="muted">Ответ будет в том же формате, только без массива <code>pdfs</code>:</p>
+      <pre><code>{
+  "calculation_id": 1,
+  "employee": "ФИО",
+  "pdf_path": "...",
+  "api_download_url": "/api/departments/b2b/periods/2026/6/calculations/1/pdf/download",
+  "web_download_url": "/calculations/1/pdf/download"
+}</code></pre>
+    </div>
+
+    <div class="api-call">
+      <div class="api-call-header">
+        <h3>12. Скачать PDF расчёта</h3>
+        <button type="button" class="copy-button" data-copy-target="copy-download-pdf">Копировать</button>
+      </div>
+      <pre><code id="copy-download-pdf">curl -X GET {{ api_base_url }}/api/departments/b2b/periods/2026/6/calculations/1/pdf/download \
+  -H "X-API-Key: sk_salary_..." \
+  --output calculation.pdf</code></pre>
+      <p class="muted">
+        Файл сохранится туда, откуда выполняется команда, под именем <code>calculation.pdf</code>.
+        Имя файла можно заменить на любое удобное.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll(".copy-button").forEach(function (button) {
+      button.addEventListener("click", async function () {
+        var target = document.getElementById(button.dataset.copyTarget);
+        if (!target) {
+          return;
+        }
+        var text = target.innerText;
+        try {
+          await navigator.clipboard.writeText(text);
+          var original = button.innerText;
+          button.innerText = "Скопировано";
+          window.setTimeout(function () {
+            button.innerText = original;
+          }, 1600);
+        } catch (error) {
+          var textarea = document.createElement("textarea");
+          textarea.value = text;
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand("copy");
+          textarea.remove();
+          button.innerText = "Скопировано";
+        }
+      });
+    });
+  </script>
+{% endblock %}
