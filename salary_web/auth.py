@@ -13,7 +13,7 @@ from salary_web.models import ApiKey, ApiKeyDepartment, Department, User, UserDe
 DEFAULT_DEPARTMENT_CODE = "b2b"
 DEFAULT_DEPARTMENT_NAME = "B2B-направление"
 SESSION_COOKIE = "salary_user"
-SESSION_SECRET = "salary-web-local-session-change-me"
+SESSION_SECRET = os.getenv("SALARY_SESSION_SECRET", "salary-web-local-session-change-me")
 API_KEY_HEADER = "X-API-Key"
 
 

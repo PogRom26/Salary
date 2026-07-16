@@ -556,6 +556,110 @@ generators/chief_pdf_generator.py
 JSON-снимок при этом лучше оставить как «слепок расчетки», чтобы можно было
 восстановить конкретный PDF за конкретный месяц.
 
+## Docker
+
+Для web-сервиса добавлены:
+
+```text
+Dockerfile
+docker-compose.yml
+.dockerignore
+.env.example
+```
+
+Быстрый запуск:
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+После запуска открыть:
+
+```text
+http://127.0.0.1:8000
+```
+
+Проверка состояния:
+
+```bash
+curl http://127.0.0.1:8000/api/health
+```
+
+Ожидаемый ответ:
+
+```json
+{"status":"ok"}
+```
+
+### Что сохраняется вне контейнера
+
+В `docker-compose.yml` подключены папки:
+
+```text
+./salary_web/service_data -> /app/salary_web/service_data
+./Report                  -> /app/Report
+./data                    -> /app/Data
+```
+
+Это значит, что SQLite-база, загруженные отчеты, созданные PDF и файлы
+первичного проекта не пропадут при пересоздании контейнера.
+
+Внутри контейнера путь называется `/app/Data`, потому что первичный расчетный
+код ищет именно `Data`. Снаружи используется локальная папка `./data`.
+
+### Переменные окружения
+
+Основные переменные:
+
+```text
+PORT=8000
+DATABASE_URL=sqlite:////app/salary_web/service_data/salary.db
+SALARY_SESSION_SECRET=replace-this-with-a-long-random-string
+```
+
+`SALARY_SESSION_SECRET` нужен для подписи cookie-сессий. В локальной разработке
+можно оставить тестовое значение, но для нормального сервера его нужно заменить.
+
+### Команды Docker
+
+Запустить:
+
+```bash
+docker compose up --build
+```
+
+Запустить в фоне:
+
+```bash
+docker compose up --build -d
+```
+
+Остановить:
+
+```bash
+docker compose down
+```
+
+Посмотреть логи:
+
+```bash
+docker compose logs -f salary-web
+```
+
+Зайти внутрь контейнера:
+
+```bash
+docker compose exec salary-web bash
+```
+
+Запустить первичный расчет внутри контейнера:
+
+```bash
+docker compose exec salary-web python calculate_salary.py
+docker compose exec salary-web python main.py
+```
+
 ## Проверка после изменений
 
 Минимальная проверка:

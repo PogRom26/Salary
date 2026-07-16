@@ -348,3 +348,12 @@ Web-сервис живет отдельно в `salary_web/` и описан в
 Коротко: web-версия добавляет авторизацию, права по направлениям, загрузку
 отчетов через браузер/API, SQLite/PostgreSQL, ручные корректировки, генерацию
 PDF и API для интеграции с 1С/CRM.
+
+Для web-версии добавлена Docker-обвязка:
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Подробности — в разделе Docker файла [`SERVICE_README.md`](SERVICE_README.md).
