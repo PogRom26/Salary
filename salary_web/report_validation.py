@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from parsers.excel_reader import read_excel
 from services.calculation_context import load_context_from_files
-from salary_web.config import REQUIRED_REPORT_TYPES
+from salary_web.config import REQUIRED_REPORT_TYPES, resolve_service_data_path
 from salary_web.models import Period, PeriodStatus, ReportStatus, UploadedReport
 from salary_web.report_storage import report_completeness, update_period_status
 
@@ -23,7 +23,7 @@ def validate_period_reports(db: Session, period: Period) -> dict[str, object]:
         if report.report_type not in REQUIRED_REPORT_TYPES:
             continue
         try:
-            read_excel(Path(report.stored_path))
+            read_excel(resolve_service_data_path(report.stored_path))
         except Exception as error:
             report.status = ReportStatus.ERROR.value
             report.error_message = str(error)
@@ -65,7 +65,9 @@ def _clear_validation_errors(period: Period) -> None:
 def _period_files(period: Period) -> dict[str, Path | list[Path]]:
     reports_by_type: dict[str, list[Path]] = {}
     for report in period.reports:
-        reports_by_type.setdefault(report.report_type, []).append(Path(report.stored_path))
+        reports_by_type.setdefault(report.report_type, []).append(
+            resolve_service_data_path(report.stored_path)
+        )
 
     files: dict[str, Path | list[Path]] = {}
     for report_type in REQUIRED_REPORT_TYPES:

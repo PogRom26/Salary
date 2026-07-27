@@ -10,6 +10,34 @@ DB_PATH = DATA_DIR / "salary.db"
 
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_PATH}")
 
+
+def resolve_service_data_path(stored_path: str | Path) -> Path:
+    """Resolve paths stored before/after Docker migration.
+
+    Older rows may contain absolute macOS paths like
+    /Users/.../salary_web/service_data/generated/...
+    Docker sees the same mounted folder as /app/salary_web/service_data.
+    New rows may contain paths relative to DATA_DIR.
+    """
+    path = Path(stored_path)
+    if path.exists():
+        return path
+    if not path.is_absolute():
+        return DATA_DIR / path
+    parts = path.parts
+    if "service_data" in parts:
+        index = parts.index("service_data")
+        return DATA_DIR.joinpath(*parts[index + 1:])
+    return path
+
+
+def stored_service_data_path(path: str | Path) -> str:
+    path = Path(path)
+    try:
+        return str(path.resolve().relative_to(DATA_DIR.resolve()))
+    except ValueError:
+        return str(path)
+
 MONTHS = {
     1: "январь",
     2: "февраль",

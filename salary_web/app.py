@@ -26,7 +26,14 @@ from salary_web.auth import (
     SESSION_COOKIE,
     user_department_ids,
 )
-from salary_web.config import GENERATED_DIR, MONTHS, REPORT_DESCRIPTIONS, REPORT_TYPES, UPLOADS_DIR
+from salary_web.config import (
+    GENERATED_DIR,
+    MONTHS,
+    REPORT_DESCRIPTIONS,
+    REPORT_TYPES,
+    UPLOADS_DIR,
+    resolve_service_data_path,
+)
 from salary_web.calculation_runner import calculate_period
 from salary_web.database import get_db, init_db
 from salary_web.models import (
@@ -75,15 +82,22 @@ templates.env.filters["status_label"] = status_label
 templates.env.filters["report_type_label"] = report_type_label
 
 
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        {"detail": exc.detail},
+        status_code=exc.status_code,
+        headers=exc.headers,
+        media_type="application/json; charset=utf-8",
+    )
+
+
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     public_prefixes = ("/login", "/static", "/health", "/api/health", "/api/commands", "/openapi.json")
     if request.url.path == "/" or request.url.path.startswith(public_prefixes):
         return await call_next(request)
-    if (
-        request.url.path.startswith("/api/departments/")
-        and request.headers.get(API_KEY_HEADER)
-    ):
+    if request.url.path.startswith("/api/departments/"):
         return await call_next(request)
     if not read_session_user_id(request):
         if request.url.path.startswith("/api"):
@@ -586,7 +600,7 @@ def download_calculation_pdf(calculation_id: int, request: Request, db: Session 
 def calculation_pdf_response(calculation: Calculation) -> FileResponse:
     if not calculation.pdf_path:
         raise HTTPException(status_code=404, detail="PDF еще не сформирован")
-    pdf_path = Path(calculation.pdf_path)
+    pdf_path = resolve_service_data_path(calculation.pdf_path)
     if not pdf_path.exists():
         raise HTTPException(status_code=404, detail="Файл PDF не найден")
     return FileResponse(
@@ -750,6 +764,7 @@ def create_api_key_form(
     api_key = ApiKey(
         name=name.strip(),
         key_hash=hash_api_key(secret),
+        key_secret=secret,
         is_active=1,
     )
     db.add(api_key)
@@ -1645,7 +1660,7 @@ def delete_period(db: Session, period: Period) -> None:
             paths_to_delete.append(Path(report.stored_path))
     for calculation in period.calculations:
         if calculation.pdf_path:
-            paths_to_delete.append(Path(calculation.pdf_path))
+            paths_to_delete.append(resolve_service_data_path(calculation.pdf_path))
 
     for path in paths_to_delete:
         try:

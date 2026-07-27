@@ -4,7 +4,7 @@ from pathlib import Path
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
-from salary_web.config import REPORT_TYPES, REQUIRED_REPORT_TYPES, UPLOADS_DIR
+from salary_web.config import REPORT_TYPES, REQUIRED_REPORT_TYPES, UPLOADS_DIR, stored_service_data_path
 from salary_web.models import Period, PeriodStatus, ReportStatus, UploadedReport
 
 
@@ -99,14 +99,14 @@ def save_uploaded_report(
             period_id=period.id,
             report_type=report_type,
             original_filename=upload.filename or filename,
-            stored_path=str(target_path),
+            stored_path=stored_service_data_path(target_path),
             file_hash=file_hash,
             status=ReportStatus.UPLOADED.value,
         )
         db.add(report)
     else:
         report.original_filename = upload.filename or filename
-        report.stored_path = str(target_path)
+        report.stored_path = stored_service_data_path(target_path)
         report.file_hash = file_hash
         report.status = ReportStatus.UPLOADED.value
         report.error_message = None

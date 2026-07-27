@@ -7,7 +7,7 @@ from directions.b2b.chief_salary import calculate_chief
 from directions.b2b.manager_salary import calculate_managers
 from services.calculation_context import load_context_from_files
 from services.report_io import report_stem
-from salary_web.config import GENERATED_DIR, REQUIRED_REPORT_TYPES
+from salary_web.config import GENERATED_DIR, REQUIRED_REPORT_TYPES, resolve_service_data_path
 from salary_web.models import (
     AdditionalPayment,
     Calculation,
@@ -87,7 +87,9 @@ def calculate_period(db: Session, period: Period) -> list[Calculation]:
 def _period_files(period: Period) -> dict[str, Path | list[Path]]:
     reports_by_type: dict[str, list[Path]] = {}
     for report in period.reports:
-        reports_by_type.setdefault(report.report_type, []).append(Path(report.stored_path))
+        reports_by_type.setdefault(report.report_type, []).append(
+            resolve_service_data_path(report.stored_path)
+        )
 
     files: dict[str, Path | list[Path]] = {}
     for report_type in REQUIRED_REPORT_TYPES:

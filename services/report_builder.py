@@ -212,6 +212,12 @@ def build_employee_report(
         "total_bonus":
             total_bonus,
 
+        "salary_total":
+            round_half_up(
+                total_bonus
+                + timesheet_data["salary"]
+            ),
+
         "cycle":
             cycle_data,
 

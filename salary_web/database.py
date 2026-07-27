@@ -116,6 +116,12 @@ def migrate_db() -> None:
             "department_id",
             "INTEGER",
         )
+        _add_column_if_missing(
+            connection,
+            "api_keys",
+            "key_secret",
+            "VARCHAR(255)",
+        )
 
         department_id = connection.execute(text(
             "SELECT id FROM departments WHERE code='b2b'"

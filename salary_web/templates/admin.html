@@ -86,14 +86,14 @@
       <h2>Создать API-ключ</h2>
       <p class="muted">
         API-ключ нужен для внешних систем: 1С, CRM и других интеграций.
-        Ключ будет показан только один раз после создания.
+        Новые ключи сохраняются и видны только администраторам.
       </p>
       {% if generated_api_key %}
         <div class="status-pill">
           Новый API-ключ:
           <code>{{ generated_api_key }}</code>
         </div>
-        <p class="muted">Скопируй его сейчас. Потом в открытом виде он не хранится.</p>
+        <p class="muted">Его можно скопировать сейчас или позже посмотреть в списке ключей ниже.</p>
       {% endif %}
       <form method="post" action="/admin/api-keys">
         <label>Название<br><input type="text" name="name" placeholder="1C B2B" required></label><br>
@@ -120,6 +120,7 @@
     <table>
       <tr>
         <th>Название</th>
+        <th>Ключ</th>
         <th>Статус</th>
         <th>Последнее использование</th>
         <th>Права</th>
@@ -131,6 +132,13 @@
             <form id="api-key-rights-{{ api_key.id }}" method="post" action="/admin/api-keys/{{ api_key.id }}/rights">
               <label>Название<br><input type="text" name="name" value="{{ api_key.name }}" required></label>
             </form>
+          </td>
+          <td>
+            {% if api_key.key_secret %}
+              <code style="display: block; max-width: 360px; white-space: normal; overflow-wrap: anywhere;">{{ api_key.key_secret }}</code>
+            {% else %}
+              <span class="muted">Старый ключ не сохранен. Создайте новый ключ.</span>
+            {% endif %}
           </td>
           <td>{{ "Активен" if api_key.is_active else "Выключен" }}</td>
           <td>{{ api_key.last_used_at or "" }}</td>

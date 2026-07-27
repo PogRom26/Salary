@@ -7,7 +7,7 @@ from generators.chief_pdf_generator import generate_chief_pdf
 from generators.pdf_generator import generate_pdf
 from services.report_io import report_stem
 from services.rounding import round_half_up
-from salary_web.config import GENERATED_DIR
+from salary_web.config import GENERATED_DIR, stored_service_data_path
 from salary_web.models import Calculation
 
 
@@ -285,7 +285,7 @@ def generate_pdf_for_calculation(db: Session, calculation: Calculation) -> Path:
     else:
         raise ValueError(f"Неизвестный тип расчета: {report.get('report_type')}")
 
-    calculation.pdf_path = str(pdf_path)
+    calculation.pdf_path = stored_service_data_path(pdf_path)
     db.flush()
     return pdf_path
 

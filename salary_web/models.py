@@ -114,6 +114,7 @@ class ApiKey(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     key_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    key_secret: Mapped[str | None] = mapped_column(String(255))
     is_active: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime)
